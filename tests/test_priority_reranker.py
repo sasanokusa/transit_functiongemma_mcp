@@ -1,6 +1,6 @@
 import unittest
 
-from route_reranker import rerank_routes
+from transit_functiongemma.route_reranker import rerank_routes
 
 
 class PriorityRerankerTest(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 
-from prepare_sft import convert_record
+from training.prepare_sft import convert_record
 from transit_functiongemma.schemas import CLARIFICATION_TOOL_NAME
 
 

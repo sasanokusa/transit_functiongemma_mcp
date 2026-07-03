@@ -18,7 +18,7 @@ export PIP_CACHE_DIR=/path/to/pip-cache
 既定ではtrainを各class 64件（合計576件）、evalを各class 8件（合計72件）生成します。
 
 ```bash
-python generate_balanced_synthetic_dataset.py \
+python datagen/generate_balanced_synthetic_dataset.py \
   --per-class 64 \
   --eval-per-class 8
 ```
@@ -28,7 +28,7 @@ python generate_balanced_synthetic_dataset.py \
 ## 2. Analyze distribution and overlap
 
 ```bash
-python analyze_dataset.py \
+python evaluation/analyze_dataset.py \
   --train data/raw/synthetic_balanced.jsonl \
   --eval data/eval/eval_balanced.jsonl
 ```
@@ -40,7 +40,7 @@ python analyze_dataset.py \
 空assistant turnをno-call教師として使う互換モード:
 
 ```bash
-python prepare_sft.py \
+python training/prepare_sft.py \
   --input data/raw/synthetic_balanced.jsonl \
   --output data/processed/sft_balanced.jsonl \
   --schema-mode baked
@@ -49,19 +49,19 @@ python prepare_sft.py \
 ローカル疑似toolを使う比較実験:
 
 ```bash
-python prepare_sft.py \
+python training/prepare_sft.py \
   --input data/raw/synthetic_balanced.jsonl \
   --output data/processed/sft_balanced_clarification.jsonl \
   --schema-mode baked \
   --clarification-tool
 ```
 
-`ask_clarification` はMCP toolではありません。`mcp_client.py` がローカルで質問文へ変換し、MCPへは送信しません。
+`ask_clarification` はMCP toolではありません。`scripts/mcp_client.py` がローカルで質問文へ変換し、MCPへは送信しません。
 
 ## 4. Baseline LoRA
 
 ```bash
-python train_lora.py \
+python training/train_lora.py \
   --dataset data/processed/sft_balanced.jsonl \
   --output-dir outputs/functiongemma-transit-balanced-r8 \
   --max-seq-length 512 \
@@ -76,7 +76,7 @@ python train_lora.py \
 ## 5. Evaluate
 
 ```bash
-python eval_toolcall.py \
+python evaluation/eval_toolcall.py \
   --dataset data/eval/eval_balanced.jsonl \
   --run-model \
   --adapter outputs/functiongemma-transit-balanced-r8 \
@@ -96,7 +96,7 @@ clarification版adapterを評価する場合は `--clarification-tool` を追加
 attentionに加えてMLP projectionもLoRA対象にします。4GB VRAM向けにrank 4が既定です。
 
 ```bash
-python train_lora_plus.py \
+python training/train_lora_plus.py \
   --dataset data/processed/sft_balanced.jsonl \
   --output-dir outputs/functiongemma-transit-plus-r4 \
   --target-modules all \
@@ -114,7 +114,7 @@ python train_lora_plus.py \
 まずsequence lengthとrankを縮小します。
 
 ```bash
-python train_lora_plus.py \
+python training/train_lora_plus.py \
   --dataset data/processed/sft_balanced.jsonl \
   --output-dir outputs/functiongemma-transit-plus-oom-safe \
   --target-modules all \

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 from pathlib import Path
@@ -8,7 +13,7 @@ from pathlib import Path
 from transit_functiongemma.config import DEFAULT_SCHEMA_PATH, MCP_ENDPOINT
 from transit_functiongemma.mcp import MCPClient, format_mcp_result, save_mcp_artifact
 from transit_functiongemma.schemas import load_mcp_tools
-from local_tools import execute_local_tool, is_local_tool
+from transit_functiongemma.local_tools import execute_local_tool, is_local_tool
 from transit_functiongemma.toolcall import parse_tool_calls
 
 

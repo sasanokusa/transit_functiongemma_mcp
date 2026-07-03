@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from route_constraints import normalize_station_name
+from transit_functiongemma.route_constraints import normalize_station_name
 
 
 CLUSTER_RADIUS_METERS = 700.0

@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from local_tools import RESOLVE_ROUTE_REQUEST_TOOL
+from transit_functiongemma.local_tools import RESOLVE_ROUTE_REQUEST_TOOL
 from transit_functiongemma.validation import validate_tool_call
 from transit_functiongemma.toolcall import ToolCall
 

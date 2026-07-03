@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 import re
@@ -694,7 +699,7 @@ def main() -> None:
     if args.predictions:
         predictions = {row["id"]: row["model_output"] for row in read_jsonl(args.predictions)}
     else:
-        from infer import ToolRouter
+        from transit_functiongemma.infer import ToolRouter
 
         router = ToolRouter(
             args.base_model,

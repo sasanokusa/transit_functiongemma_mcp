@@ -14,17 +14,17 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from local_tools import (
+from transit_functiongemma.local_tools import (
     ASK_CLARIFICATION,
     RESOLVE_ROUTE_REQUEST,
     execute_local_tool,
     is_local_tool,
 )
-from route_constraints import apply_route_constraints, normalize_station_name
-from route_normalizer import normalize_mcp_result
-from route_renderer import render_answer, render_clarification
-from route_reranker import rerank_routes
-from station_resolver import resolve_physical_station, station_query_text
+from transit_functiongemma.route_constraints import apply_route_constraints, normalize_station_name
+from transit_functiongemma.route_normalizer import normalize_mcp_result
+from transit_functiongemma.route_renderer import render_answer, render_clarification
+from transit_functiongemma.route_reranker import rerank_routes
+from transit_functiongemma.station_resolver import resolve_physical_station, station_query_text
 from transit_functiongemma.config import DEFAULT_SCHEMA_PATH, MCP_ENDPOINT, MODEL_ID
 from transit_functiongemma.japanese import repair_tool_call_values
 from transit_functiongemma.mcp import MCPClient, save_mcp_artifact
@@ -278,7 +278,7 @@ def run_pipeline(
     default_graphical: bool = False,
 ) -> str:
     # Keep torch/Transformers imports out of offline normalizer/renderer usage.
-    from infer import ToolRouter
+    from transit_functiongemma.infer import ToolRouter
 
     pipeline_started = time.monotonic()
 

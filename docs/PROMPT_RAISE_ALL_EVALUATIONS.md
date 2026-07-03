@@ -26,7 +26,7 @@
 
 ## 必須対応 1: 評価器の強化
 
-`eval_toolcall.py` または新規 `eval_pipeline.py` を改善し、以下に対応してください。
+`evaluation/eval_toolcall.py` または新規 `evaluation/eval_pipeline.py` を改善し、以下に対応してください。
 
 1. `history` 付き評価
    - `plan_journey` / `plan_route_map` は駅解決済みの会話履歴を持つ

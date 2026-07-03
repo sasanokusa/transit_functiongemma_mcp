@@ -1,6 +1,6 @@
 import unittest
 
-from route_renderer import EMPTY_MESSAGE, render_answer, render_clarification
+from transit_functiongemma.route_renderer import EMPTY_MESSAGE, render_answer, render_clarification
 
 
 class RouteRendererTest(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 
-from answer_pipeline import _route_arguments
+from transit_functiongemma.answer_pipeline import _route_arguments
 
 
 STATIONS = [

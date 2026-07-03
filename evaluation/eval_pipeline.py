@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 import re
@@ -10,7 +15,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from answer_pipeline import USER_ERROR, run_pipeline
+from transit_functiongemma.answer_pipeline import USER_ERROR, run_pipeline
 from transit_functiongemma.config import DEFAULT_SCHEMA_PATH, MCP_ENDPOINT, MODEL_ID
 from transit_functiongemma.mcp import MCPError, MCPTimeoutError
 
@@ -135,7 +140,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from infer import ToolRouter
+    from transit_functiongemma.infer import ToolRouter
 
     router = ToolRouter(
         args.base_model,

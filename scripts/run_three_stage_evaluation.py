@@ -52,7 +52,7 @@ def main() -> None:
 
     common = [
         sys.executable,
-        "eval_toolcall.py",
+        "evaluation/eval_toolcall.py",
         "--dataset",
         str(args.intent_dataset),
         "--run-model",

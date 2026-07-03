@@ -1,11 +1,11 @@
 import unittest
 
-from route_constraints import (
+from transit_functiongemma.route_constraints import (
     apply_route_constraints,
     evaluate_route_constraints,
     normalize_station_name,
 )
-from route_renderer import render_answer
+from transit_functiongemma.route_renderer import render_answer
 
 
 class RouteConstraintsTest(unittest.TestCase):

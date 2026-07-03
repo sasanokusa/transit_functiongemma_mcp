@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from line_operator_rules import JR_LINES, TOEI_SUBWAY_LINES, TOKYO_METRO_LINES
+from transit_functiongemma.line_operator_rules import JR_LINES, TOEI_SUBWAY_LINES, TOKYO_METRO_LINES
 
 
 _CLOCK_PATTERN = re.compile(r"(?<!\d)(-?\d{1,3}):([0-5]\d)(?!\d)")

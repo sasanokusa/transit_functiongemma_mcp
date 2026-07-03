@@ -26,9 +26,7 @@ COPY deploy/build/adapter/ /opt/adapter/
 COPY transit_functiongemma/ /app/transit_functiongemma/
 COPY data/tool_schema.json /app/data/tool_schema.json
 COPY data/tools_functiongemma.json /app/data/tools_functiongemma.json
-COPY web_api.py answer_pipeline.py infer.py mcp_client.py local_tools.py \
-     route_constraints.py route_normalizer.py route_renderer.py \
-     station_resolver.py route_reranker.py line_operator_rules.py /app/
+COPY web_api.py /app/
 
 EXPOSE 8091
 CMD ["python", "web_api.py", "--host", "0.0.0.0", "--port", "8091"]

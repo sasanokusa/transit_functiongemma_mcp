@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from route_normalizer import normalize_mcp_result
+from transit_functiongemma.route_normalizer import normalize_mcp_result
 
 
 class RouteNormalizerTest(unittest.TestCase):

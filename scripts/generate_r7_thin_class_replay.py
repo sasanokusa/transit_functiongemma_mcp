@@ -29,8 +29,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from generate_synthetic_dataset import STATIONS
-from generate_balanced_synthetic_dataset import STYLE_SUFFIXES, target, raw_row
+from datagen.generate_synthetic_dataset import STATIONS
+from datagen.generate_balanced_synthetic_dataset import STYLE_SUFFIXES, target, raw_row
 
 DEFAULT_EVAL_FILES = [
     'data/eval/independent_holdout_300.jsonl',

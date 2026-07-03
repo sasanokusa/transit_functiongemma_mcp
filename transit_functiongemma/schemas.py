@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from local_tools import (
+from transit_functiongemma.local_tools import (
     ASK_CLARIFICATION as CLARIFICATION_TOOL_NAME,
     ASK_CLARIFICATION_TOOL as CLARIFICATION_TOOL,
     RESOLVE_ROUTE_REQUEST_TOOL,

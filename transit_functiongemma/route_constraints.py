@@ -7,7 +7,7 @@ import re
 import unicodedata
 from typing import Any, Iterable
 
-from line_operator_rules import evaluate_operator_constraints, line_matches_constraint
+from transit_functiongemma.line_operator_rules import evaluate_operator_constraints, line_matches_constraint
 
 
 _SPACE_RE = re.compile(r"\s+")

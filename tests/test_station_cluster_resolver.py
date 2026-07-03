@@ -1,6 +1,6 @@
 import unittest
 
-from station_resolver import resolve_physical_station
+from transit_functiongemma.station_resolver import resolve_physical_station
 
 
 class StationClusterResolverTest(unittest.TestCase):

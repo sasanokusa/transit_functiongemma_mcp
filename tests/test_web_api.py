@@ -3,7 +3,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from answer_pipeline import StationSelectionRequired, SuggestionSelectionRequired
+from transit_functiongemma.answer_pipeline import StationSelectionRequired, SuggestionSelectionRequired
 from web_api import TransitAPI, _compose_route_prompt
 
 

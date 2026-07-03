@@ -16,12 +16,12 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from answer_pipeline import (
+from transit_functiongemma.answer_pipeline import (
     StationSelectionRequired,
     SuggestionSelectionRequired,
     run_pipeline,
 )
-from route_constraints import normalize_station_name
+from transit_functiongemma.route_constraints import normalize_station_name
 from transit_functiongemma.config import DEFAULT_SCHEMA_PATH, MCP_ENDPOINT, MODEL_ID
 from transit_functiongemma.mcp import MCPClient, MCPError, MCPTimeoutError
 
@@ -322,7 +322,7 @@ class TransitAPI:
         schema_mode: str = "baked",
         normalize_ja: bool = False,
     ) -> None:
-        from infer import ToolRouter
+        from transit_functiongemma.infer import ToolRouter
 
         self.adapter = adapter
         self.schema_mode = schema_mode

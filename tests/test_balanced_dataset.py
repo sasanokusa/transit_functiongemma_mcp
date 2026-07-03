@@ -1,6 +1,6 @@
 import unittest
 
-from generate_balanced_synthetic_dataset import CLASSES, build_class, input_key
+from datagen.generate_balanced_synthetic_dataset import CLASSES, build_class, input_key
 
 
 class BalancedDatasetTest(unittest.TestCase):

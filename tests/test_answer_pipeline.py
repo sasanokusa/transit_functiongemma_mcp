@@ -1,6 +1,6 @@
 import unittest
 
-from answer_pipeline import (
+from transit_functiongemma.answer_pipeline import (
     _display_suggestions,
     _planned_call_from_model_intent,
     _route_arguments,
@@ -8,7 +8,7 @@ from answer_pipeline import (
     handle_local_call,
     handle_no_call,
 )
-from local_tools import extract_route_hints
+from transit_functiongemma.local_tools import extract_route_hints
 
 
 class AnswerPipelineOfflineTest(unittest.TestCase):

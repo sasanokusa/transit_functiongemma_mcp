@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from transit_functiongemma.route_intent import extract_route_intent
-from line_operator_rules import extract_operator_constraints
+from transit_functiongemma.line_operator_rules import extract_operator_constraints
 
 
 ASK_CLARIFICATION = "ask_clarification"

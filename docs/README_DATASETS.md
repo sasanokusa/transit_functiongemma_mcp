@@ -19,6 +19,6 @@
 ## 注意
 
 `plan_journey` / `plan_route_map` の行は、駅解決済み状態を表すため `history` を含みます。
-既存の `eval_toolcall.py` が `history` を未対応の場合は、先に評価器を `history` 対応にしてください。
+既存の `evaluation/eval_toolcall.py` が `history` を未対応の場合は、先に評価器を `history` 対応にしてください。
 
 生成日時の基準は `2026-06-29 10:00 Asia/Tokyo` です。

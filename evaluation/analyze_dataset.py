@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import argparse
 import json
 from collections import Counter
@@ -8,7 +13,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from prepare_sft import convert_record, read_jsonl
+from training.prepare_sft import convert_record, read_jsonl
 from transit_functiongemma.config import DEFAULT_SCHEMA_PATH, DEVELOPER_PROMPT, MODEL_ID
 from transit_functiongemma.schemas import (
     compact_functiongemma_tools,

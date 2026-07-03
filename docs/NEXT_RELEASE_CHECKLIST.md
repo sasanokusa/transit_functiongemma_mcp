@@ -41,11 +41,11 @@ must not hide deterioration in the raw metric even when deterministic normalizat
 ## Pre-deploy commands
 
 ```bash
-python validate_eval_datasets.py
-python fetch_tools.py --check
+python evaluation/validate_eval_datasets.py
+python scripts/fetch_tools.py --check
 python -m unittest discover -s tests -v
 
-python eval_toolcall.py \
+python evaluation/eval_toolcall.py \
   --dataset data/eval/independent_holdout_300.jsonl \
   --run-model --adapter outputs/functiongemma-transit-ja-real-r4 \
   --normalize-ja --bind-normalized-arguments --schema-constraint \
@@ -53,7 +53,7 @@ python eval_toolcall.py \
   --markdown-output artifacts/eval_independent_holdout_300.md \
   --failures-output artifacts/failures_independent_holdout_300.jsonl
 
-python eval_toolcall.py \
+python evaluation/eval_toolcall.py \
   --dataset data/eval/manual_practical_100.jsonl \
   --run-model --adapter outputs/functiongemma-transit-ja-real-r4 \
   --normalize-ja --bind-normalized-arguments --schema-constraint \
@@ -61,7 +61,7 @@ python eval_toolcall.py \
   --markdown-output artifacts/eval_manual_practical_100.md \
   --failures-output artifacts/failures_manual_practical_100.jsonl
 
-python eval_pipeline.py \
+python evaluation/eval_pipeline.py \
   --adapter outputs/functiongemma-transit-ja-real-r4 \
   --max-routes 1
 ```

@@ -1,6 +1,6 @@
 import unittest
 
-from answer_pipeline import _planned_call_from_model_intent, _route_arguments
+from transit_functiongemma.answer_pipeline import _planned_call_from_model_intent, _route_arguments
 
 
 class ViaPlanningTest(unittest.TestCase):
