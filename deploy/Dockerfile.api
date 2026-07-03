@@ -1,0 +1,34 @@
+# Transit FunctionGemma tool-router API (CPU / arm64)
+# Built natively on Apple Silicon for the arm64 Raspberry Pi cluster.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/opt/hf \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    FUNCTIONGEMMA_ADAPTER=/opt/adapter \
+    FUNCTIONGEMMA_NORMALIZE_JA=1 \
+    OMP_NUM_THREADS=4
+
+WORKDIR /app
+
+# Runtime-only dependencies (CPU torch wheel from PyPI for aarch64).
+COPY deploy/requirements-runtime.txt /tmp/requirements-runtime.txt
+RUN pip install --index-url https://download.pytorch.org/whl/cpu torch \
+ && pip install -r /tmp/requirements-runtime.txt
+
+# Baked model: base HF cache + LoRA adapter (cluster has no PV / no training-server access).
+COPY deploy/build/hf/ /opt/hf/
+COPY deploy/build/adapter/ /opt/adapter/
+
+# Application code.
+COPY transit_functiongemma/ /app/transit_functiongemma/
+COPY data/tool_schema.json /app/data/tool_schema.json
+COPY data/tools_functiongemma.json /app/data/tools_functiongemma.json
+COPY web_api.py answer_pipeline.py infer.py mcp_client.py local_tools.py \
+     route_constraints.py route_normalizer.py route_renderer.py \
+     station_resolver.py route_reranker.py line_operator_rules.py /app/
+
+EXPOSE 8091
+CMD ["python", "web_api.py", "--host", "0.0.0.0", "--port", "8091"]

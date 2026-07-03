@@ -1,0 +1,19 @@
+{
+  "status": "ok",
+  "query": {
+    "origin_text": null,
+    "destination_text": null,
+    "avoid_station_texts": [],
+    "via_station_texts": [],
+    "graphical": false
+  },
+  "routes": [],
+  "suggestion_type": "station",
+  "suggestions": [
+    {"id": "example:tokyo", "name": "東京", "kind": "station"},
+    {"id": "example:tokyo-teleport", "name": "東京テレポート", "kind": "station"},
+    {"id": "example:tokyo-big-sight", "name": "東京ビッグサイト", "kind": "station"}
+  ],
+  "warnings": [],
+  "raw_tool_name": "suggest_stations"
+}

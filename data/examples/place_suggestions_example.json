@@ -1,0 +1,19 @@
+{
+  "status": "ok",
+  "query": {
+    "origin_text": null,
+    "destination_text": null,
+    "avoid_station_texts": [],
+    "via_station_texts": [],
+    "graphical": false
+  },
+  "routes": [],
+  "suggestion_type": "place",
+  "suggestions": [
+    {"id": "example:tokyo-tower", "name": "東京タワー", "kind": "place"},
+    {"id": "example:tokyo-tower-front", "name": "東京タワー前", "kind": "stop"},
+    {"id": "example:tokyo-prince", "name": "東京プリンスホテル", "kind": "place"}
+  ],
+  "warnings": [],
+  "raw_tool_name": "suggest_places"
+}

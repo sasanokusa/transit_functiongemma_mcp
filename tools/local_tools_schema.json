@@ -1,0 +1,165 @@
+{
+  "tools": [
+    {
+      "name": "resolve_route_request",
+      "description": "日本語の乗換・経路検索要求を、MCP実行前のローカルintent slotに変換する。経路事実は生成しない。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "origin_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "destination_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "via_station_texts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avoid_station_texts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avoid_line_texts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preferred_line_texts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_operator_groups": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "subway",
+                "tokyo_metro",
+                "toei_subway"
+              ]
+            }
+          },
+          "avoid_operator_groups": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "JR"
+              ]
+            }
+          },
+          "avoid_modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "bus"
+              ]
+            }
+          },
+          "priority": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "fast",
+              "cheap",
+              "few_transfers",
+              "less_walk",
+              null
+            ]
+          },
+          "time_mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "departure_at",
+              "arrive_by",
+              "first_train",
+              "last_train",
+              null
+            ]
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "time": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "graphical": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "origin_text",
+          "destination_text",
+          "via_station_texts",
+          "avoid_station_texts",
+          "avoid_line_texts",
+          "preferred_line_texts",
+          "allowed_operator_groups",
+          "avoid_operator_groups",
+          "avoid_modes",
+          "priority",
+          "time_mode",
+          "date",
+          "time",
+          "graphical"
+        ]
+      }
+    },
+    {
+      "name": "ask_clarification",
+      "description": "出発地・目的地などの必須情報が不足している場合に、MCPを呼ばず確認するローカル疑似tool。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "origin",
+                "destination",
+                "time",
+                "station_choice"
+              ]
+            }
+          },
+          "question": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "missing",
+          "question"
+        ]
+      }
+    }
+  ]
+}

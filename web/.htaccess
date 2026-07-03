@@ -1,0 +1,13 @@
+RewriteEngine On
+RewriteRule ^api/(.*)$ http://127.0.0.1:8091/$1 [P,L]
+
+<IfModule mod_headers.c>
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Content-Type-Options "nosniff"
+
+  <FilesMatch "\.(?:html|css|js)$">
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+    Header always set Pragma "no-cache"
+    Header always set Expires "0"
+  </FilesMatch>
+</IfModule>

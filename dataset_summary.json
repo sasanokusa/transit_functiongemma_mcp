@@ -1,0 +1,23 @@
+{
+  "independent_holdout_300": {
+    "suggest_stations": 40,
+    "suggest_places": 40,
+    "reverse_geocode": 30,
+    "station_departures": 30,
+    "get_station": 25,
+    "list_feeds": 20,
+    "plan_journey": 45,
+    "plan_route_map": 40,
+    "NO_CALL": 30
+  },
+  "manual_practical_100": {
+    "suggest_stations": 32,
+    "suggest_places": 10,
+    "reverse_geocode": 8,
+    "station_departures": 10,
+    "get_station": 5,
+    "list_feeds": 5,
+    "plan_route_map": 15,
+    "NO_CALL": 15
+  }
+}

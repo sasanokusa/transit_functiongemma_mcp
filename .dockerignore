@@ -1,0 +1,14 @@
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.git/
+.DS_Store
+**/.DS_Store
+artifacts/
+tests/
+data/raw/
+data/processed/
+data/eval/
+data/examples/
+outputs/
+*.md

@@ -1,0 +1,9 @@
+{"id":"eval-001","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"秋葉原駅を検索して","expected_tool":"suggest_stations"}
+{"id":"eval-002","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"東京スカイツリーを場所として探して","expected_tool":"suggest_places"}
+{"id":"eval-003","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"緯度35.7101、経度139.8107の近くを探して","expected_tool":"reverse_geocode"}
+{"id":"eval-004","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"利用できる交通フィード一覧","expected_tool":"list_feeds"}
+{"id":"eval-005","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"demo-feed:tokyo の明日9時からの発車を表示","expected_tool":"station_departures","expected_normalized":{"date":"20260629","time":"9:00"}}
+{"id":"eval-006","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"東京駅から行く経路","expected_tool":null,"missing_info":true}
+{"id":"eval-007","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"名古屋駅までの料金","expected_tool":null,"missing_info":true}
+{"id":"eval-008","reference_datetime":"2026-06-28 09:00 Asia/Tokyo","user":"明日の終電を調べて","expected_tool":null,"missing_info":true}
+

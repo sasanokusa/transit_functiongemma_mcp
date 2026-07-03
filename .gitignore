@@ -1,0 +1,31 @@
+# Secrets / local settings
+.env
+.claude/
+
+# OS / editor noise
+.DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Models / training outputs
+outputs/
+
+# Reports, eval artifacts, behavior/audit logs (contain query and infra details)
+artifacts/
+
+# Generated training data
+data/processed/*.jsonl
+
+# Local logs / staging / archives
+*.log
+staging_*/
+*.zip
+
+# Dataset backups and baked model build context
+*.bak
+deploy/build/

@@ -1,0 +1,5 @@
+# Static UI + /api/ reverse proxy for the Transit FunctionGemma service (arm64).
+FROM nginx:stable-alpine
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY web/index.html web/app.js web/styles.css /usr/share/nginx/html/
+EXPOSE 80

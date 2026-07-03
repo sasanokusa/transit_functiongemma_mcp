@@ -1,0 +1,381 @@
+{
+  "tools": [
+    {
+      "name": "plan_journey",
+      "description": "Plan public-transit journeys in Japan between two points. `from`/`to` are a station id (`feedId:stopId`, from suggest_places/suggest_stations) or `geo:<lat>,<lon>`. `type` selects 出発(departure)/到着(arrival)/始発(first)/終電(last); optional `via` waypoints and mode allow/avoid. Times in the result are seconds from the timezone's service-date midnight (may exceed 86400 or be negative).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Origin: a station id (feedId:stopId) or geo:<lat>,<lon>."
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination: a station id (feedId:stopId) or geo:<lat>,<lon>."
+          },
+          "fromLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Optional display name for the origin."
+          },
+          "toLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Optional display name for the destination."
+          },
+          "viaLabel": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "description": "Optional display label for each via, positionally matched to via[]."
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{8}$",
+            "description": "Service date YYYYMMDD; defaults to today in the result timezone."
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^\\d{1,2}:\\d{2}(:\\d{2})?$",
+            "description": "HH:MM or HH:MM:SS; defaults to the current time."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "departure",
+              "arrival",
+              "first",
+              "last"
+            ],
+            "default": "departure",
+            "description": "出発 / 到着 / 始発 / 終電."
+          },
+          "allowModes": {
+            "type": "string",
+            "description": "Comma-separated transit modes to allow (pre-scan filter), e.g. rail,bus."
+          },
+          "avoidModes": {
+            "type": "string",
+            "description": "Comma-separated transit modes to avoid (pre-scan filter), e.g. bus,air,ferry."
+          },
+          "avoidWalk": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ],
+            "default": "false",
+            "description": "When true, exclude any itinerary containing a walking segment."
+          },
+          "maxTransfers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8,
+            "default": 3
+          },
+          "numItineraries": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "default": 3
+          },
+          "via": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "description": "Up to 3 経由 waypoints, repeated: a station id or geo:<lat>,<lon>. Departure/arrival searches only."
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "plan_route_map",
+      "description": "Plan a journey and render it as an interactive map: the base map, the drawn route line(s), and step-by-step guidance (legs, transfers, next action). Same inputs as plan_journey — `from`/`to` are a station id (`feedId:stopId`) or `geo:<lat>,<lon>` — plus an optional `strategy` (balanced/fastest/fewestTransfers/lowestFare/shortestWalk). Prefer this over plan_journey when a visual route or map helps the user; on hosts without UI support it returns the same route as text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Origin: a station id (feedId:stopId) or geo:<lat>,<lon>."
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Destination: a station id (feedId:stopId) or geo:<lat>,<lon>."
+          },
+          "fromLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Optional display name for the origin."
+          },
+          "toLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Optional display name for the destination."
+          },
+          "viaLabel": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "description": "Optional display label for each via, positionally matched to via[]."
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{8}$",
+            "description": "Service date YYYYMMDD; defaults to today in the result timezone."
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^\\d{1,2}:\\d{2}(:\\d{2})?$",
+            "description": "HH:MM or HH:MM:SS; defaults to the current time."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "departure",
+              "arrival",
+              "first",
+              "last"
+            ],
+            "default": "departure",
+            "description": "出発 / 到着 / 始発 / 終電."
+          },
+          "allowModes": {
+            "type": "string",
+            "description": "Comma-separated transit modes to allow (pre-scan filter), e.g. rail,bus."
+          },
+          "avoidModes": {
+            "type": "string",
+            "description": "Comma-separated transit modes to avoid (pre-scan filter), e.g. bus,air,ferry."
+          },
+          "avoidWalk": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ],
+            "default": "false",
+            "description": "When true, exclude any itinerary containing a walking segment."
+          },
+          "maxTransfers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8,
+            "default": 3
+          },
+          "numItineraries": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "default": 3
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "fastest",
+              "fewestTransfers",
+              "lowestFare",
+              "shortestWalk"
+            ],
+            "default": "balanced"
+          },
+          "live": {
+            "type": "string",
+            "enum": [
+              "true",
+              "false"
+            ],
+            "default": "false"
+          },
+          "tracking": {
+            "type": "string",
+            "enum": [
+              "none",
+              "origin",
+              "destination",
+              "both"
+            ],
+            "default": "none"
+          },
+          "via": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "description": "Up to 3 経由 waypoints, repeated: a station id or geo:<lat>,<lon>. Departure/arrival searches only."
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://transit/route-map"
+        }
+      }
+    },
+    {
+      "name": "suggest_places",
+      "description": "Autocomplete places — stations, stops, facilities, and addresses — for a free-text query `q`. Use this to resolve a place name into an id or `geo:` point before plan_journey.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "suggest_stations",
+      "description": "Autocomplete stations only (parent-station, multilingual prefix) for a query `q`. Cleaner than suggest_places when the user clearly named a station.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "reverse_geocode",
+      "description": "List places/stations near a `lat`/`lon` point (optionally within `radiusMeters`). Turns a map point into nearby boarding options.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "lon": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 3
+          },
+          "radiusMeters": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 80
+          }
+        },
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_station",
+      "description": "Station detail — platforms and serving routes — for a feed-qualified station id (`feedId:stopId`).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Feed-qualified station id (feedId:stopId)."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "station_departures",
+      "description": "Upcoming departure board for a station id, where the feed's license permits this presentation. Optional `date` (YYYYMMDD), `time` (HH:MM), and `limit`.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Feed-qualified station id (feedId:stopId)."
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{8}$"
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^\\d{1,2}:\\d{2}(:\\d{2})?$"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_feeds",
+      "description": "List ingested transit feeds with license, attribution, and freshness — for coverage/sourcing answers and data provenance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    }
+  ]
+}

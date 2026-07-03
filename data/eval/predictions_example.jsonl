@@ -1,0 +1,8 @@
+{"id":"eval-001","model_output":"<start_function_call>call:suggest_stations{q:<escape>秋葉原駅<escape>,limit:5}<end_function_call>"}
+{"id":"eval-002","model_output":"<start_function_call>call:suggest_places{q:<escape>東京スカイツリー<escape>,limit:10}<end_function_call>"}
+{"id":"eval-003","model_output":"<start_function_call>call:reverse_geocode{lat:35.7101,lon:139.8107}<end_function_call>"}
+{"id":"eval-004","model_output":"<start_function_call>call:list_feeds{}<end_function_call>"}
+{"id":"eval-005","model_output":"<start_function_call>call:station_departures{id:<escape>demo-feed:tokyo<escape>,date:<escape>20260629<escape>,time:<escape>9:00<escape>}<end_function_call>"}
+{"id":"eval-006","model_output":"<end_of_turn>"}
+{"id":"eval-007","model_output":""}
+{"id":"eval-008","model_output":"確認が必要です<end_of_turn>"}

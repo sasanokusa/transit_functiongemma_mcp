@@ -1,0 +1,55 @@
+{
+  "status": "ok",
+  "query": {
+    "origin_text": "町田",
+    "destination_text": "池袋",
+    "datetime": "2026-06-29T09:00:00+09:00",
+    "time_mode": "arrive_by",
+    "priority": "fast",
+    "avoid_station_texts": ["渋谷"],
+    "via_station_texts": [],
+    "graphical": false
+  },
+  "routes": [
+    {
+      "rank": 1,
+      "summary": {
+        "duration_min": 51,
+        "fare_yen": 510,
+        "transfers": 1,
+        "departure_time": "08:10",
+        "arrival_time": "09:01",
+        "priority_label": "早い候補"
+      },
+      "constraint_check": {
+        "avoid_satisfied": true,
+        "avoided_station_texts": ["渋谷"],
+        "violated_avoid_station_texts": [],
+        "via_satisfied": true,
+        "missing_via_station_texts": []
+      },
+      "legs": [
+        {
+          "type": "train",
+          "from": "町田",
+          "to": "新宿",
+          "line": "小田急線",
+          "departure_time": "08:10",
+          "arrival_time": "08:47",
+          "duration_min": 37
+        },
+        {
+          "type": "train",
+          "from": "新宿",
+          "to": "池袋",
+          "line": "山手線",
+          "departure_time": "08:52",
+          "arrival_time": "09:01",
+          "duration_min": 9
+        }
+      ]
+    }
+  ],
+  "warnings": [],
+  "raw_tool_name": "plan_journey"
+}

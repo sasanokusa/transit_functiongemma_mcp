@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#13271f">
+  <title>Transit Router — 乗換案内</title>
+  <link rel="stylesheet" href="styles.css?v=20260629-6">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="masthead">
+      <a class="brand" href="./" aria-label="Transit Router ホーム">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Transit Router</span>
+      </a>
+      <div class="service-state" id="serviceState">
+        <span class="state-dot" aria-hidden="true"></span>
+        <span>接続確認中</span>
+      </div>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">FUNCTIONGEMMA × TRANSIT MCP</p>
+      <h1>行き方を、<br><em>ふつうの言葉</em>で。</h1>
+      <p class="lead">駅名や希望の路線を入力してください。経路・時刻・路線情報はTransit MCPから取得します。</p>
+    </section>
+
+    <section class="search-panel" aria-labelledby="searchTitle">
+      <h2 id="searchTitle" class="sr-only">乗換案内を検索</h2>
+      <form id="searchForm">
+        <label for="prompt">どこから、どこまで？</label>
+        <textarea id="prompt" name="prompt" rows="3" maxlength="500" placeholder="例：横浜から上野まで、京浜東北線で行きたい" required></textarea>
+        <div class="form-footer">
+          <span class="hint">駅・場所・経由・避けたい駅・利用路線に対応</span>
+          <button type="submit" id="submitButton">
+            <span>経路を探す</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+          </button>
+        </div>
+      </form>
+      <div class="examples" aria-label="入力例">
+        <button type="button" data-example="横浜から上野までの経路を探して">横浜 → 上野</button>
+        <button type="button" data-example="横浜から上野まで、京浜東北線で行きたい">京浜東北線で</button>
+        <button type="button" data-example="町田から池袋まで、渋谷を避けて">渋谷を避ける</button>
+        <button type="button" data-example="東京タワーを場所として探して">場所を探す</button>
+      </div>
+    </section>
+
+    <section class="result-panel" id="resultPanel" hidden aria-live="polite">
+      <div class="result-header">
+        <div>
+          <p class="result-kicker">SEARCH RESULT</p>
+          <h2 id="resultTitle">検索結果</h2>
+        </div>
+        <span id="elapsed"></span>
+      </div>
+      <div class="loading" id="loading" hidden>
+        <span class="rail-loader" aria-hidden="true"><i></i></span>
+        <div><strong>経路を確認しています</strong><small id="loadingTime">駅と路線を照合中…</small></div>
+      </div>
+      <pre id="answer"></pre>
+      <div class="map-container" id="mapContainer" hidden></div>
+      <div class="choices" id="choices" hidden aria-label="候補"></div>
+      <details class="trace-panel" id="tracePanel" hidden>
+        <summary>内部処理を見る</summary>
+        <pre id="traceOutput"></pre>
+      </details>
+      <p class="error" id="error" hidden></p>
+    </section>
+
+    <footer>
+      <p>FunctionGemmaはtool routerとしてのみ動作します。回答はMCPの結果からPythonテンプレートで生成され、後段LLMによる補完は行いません。</p>
+      <p class="license-note">
+        交通データは各事業者のGTFS／ODPT等に基づいています。本サービスはTransit APIを利用した非公式サービスであり、正確性・完全性・最新性は保証されません。実際の乗車や重要な判断では、各交通事業者の公式情報をご確認ください。<br>
+        <a href="https://transit.ls8h.com/licenses" target="_blank" rel="noopener noreferrer">出典・ライセンス</a>・<a href="https://transit.ls8h.com/terms" target="_blank" rel="noopener noreferrer">利用規約</a>・<a href="https://api.transit.ls8h.com/api/v1/feeds" target="_blank" rel="noopener noreferrer">フィード別情報</a>・<a href="https://api.transit.ls8h.com/api/v1/operators" target="_blank" rel="noopener noreferrer">事業者別情報</a>
+      </p>
+    </footer>
+  </main>
+  <script src="app.js?v=20260629-6" defer></script>
+</body>
+</html>
