@@ -1,13 +1,19 @@
-# Release manifest: r8c candidate (frozen 2026-07-10)
+# Release manifest: r8c candidate (v2, frozen 2026-07-10)
 
 このmanifestはリリース候補を不変に固定する。`best` symlinkではなく実epochとSHA-256で参照すること。
+
+> **v2改訂**: 候補をepoch-1→**epoch-3**へ変更。route専用dev(dev950)のみの選択が公式300+100に
+> 盲目で、epoch-3が300でsemantic +6pp / tool +15.5pp、route300は99.0%で回帰なしと判明したため。
+> 以後のcheckpoint選択はroute+nonroute混合devを必須とする。
+> v1のGGUF/Q6_Kハッシュはepoch-1由来のため、epoch-3の再変換後に更新すること。
 
 ## Model
 
 | Item | Value |
 |---|---|
-| Adapter | `functiongemma-transit-r8c/epoch-1`（外部dev選択で確定、`best`の実体） |
-| adapter_model.safetensors SHA-256 | `87825e094ceb31df840921be3f2279d07337bd04831fb909305a6d2a009d771f` |
+| Adapter | `functiongemma-transit-r8c/epoch-3`（公式300+100とroute300ガードで選択） |
+| adapter_model.safetensors SHA-256 | `babec9a45518c4ba52855f38c94e17a42ed00d4799add511d367a8aaec5bf927` |
+| (v1: epoch-1 adapter SHA-256) | `87825e094ceb31df840921be3f2279d07337bd04831fb909305a6d2a009d771f` |
 | Base model | `google/functiongemma-270m-it` snapshot `39eccb091651513a5dfb56892d3714c1b5b8276c` |
 | GGUF f16 SHA-256 | `a85a16312b7a47f6c5fd717d2bd771f07fa006fb96136e93a26920b15f5fe255` |
 | GGUF Q6_K SHA-256 | `4d356bb60ef43314b8cc9778913755cf4a381080824bb85e3b095792d517af90` |
