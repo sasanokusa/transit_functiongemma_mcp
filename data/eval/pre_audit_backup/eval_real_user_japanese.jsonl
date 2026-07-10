@@ -1,5 +1,5 @@
-{"id": "real-eval-station-01", "reference_datetime": "2026-06-29 09:00 Asia/Tokyo", "expected_tool": "suggest_stations", "user": "あれ、京急の横浜駅ってどれ?", "expected_arguments": {"q": "横浜駅", "limit": 5}}
-{"id": "real-eval-station-02", "reference_datetime": "2026-06-29 09:00 Asia/Tokyo", "expected_tool": "suggest_stations", "user": "立川駅の候補ほしい", "expected_arguments": {"q": "立川駅", "limit": 5}}
+{"id": "real-eval-station-01", "reference_datetime": "2026-06-29 09:00 Asia/Tokyo", "expected_tool": "suggest_stations", "user": "あれ、京急の横浜駅ってどれ?", "expected_arguments": {"q": "横浜", "limit": 5}}
+{"id": "real-eval-station-02", "reference_datetime": "2026-06-29 09:00 Asia/Tokyo", "expected_tool": "suggest_stations", "user": "立川駅の候補ほしい", "expected_arguments": {"q": "立川", "limit": 5}}
 {"id": "real-eval-place-01", "reference_datetime": "2026-06-29 09:00 Asia/Tokyo", "expected_tool": "suggest_places", "user": "東京スカイツリーを駅じゃなく施設で探して", "expected_arguments": {"q": "東京スカイツリー", "limit": 10}}
 {"id": "real-eval-place-02", "reference_datetime": "2026-06-29 09:00 Asia/Tokyo", "expected_tool": "suggest_places", "user": "日本武道館って場所の候補ある?", "expected_arguments": {"q": "日本武道館", "limit": 10}}
 {"id": "real-eval-geo-01", "reference_datetime": "2026-06-29 09:00 Asia/Tokyo", "expected_tool": "reverse_geocode", "user": "北緯35.6812 東経139.7671の最寄り", "expected_arguments": {"lat": 35.6812, "lon": 139.7671, "limit": 3, "radiusMeters": 200}}

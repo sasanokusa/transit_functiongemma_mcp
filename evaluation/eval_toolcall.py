@@ -106,6 +106,23 @@ def valid_clarification(call: ToolCall) -> bool:
     )
 
 
+def intent_time_mode_from_call(call: ToolCall | None) -> str | None:
+    if call is None:
+        return None
+    value = call.arguments.get("time_mode")
+    if isinstance(value, str):
+        return value
+    route_type = call.arguments.get("type")
+    if not isinstance(route_type, str):
+        return None
+    return {
+        "departure": "departure_at",
+        "arrival": "arrive_by",
+        "first": "first_train",
+        "last": "last_train",
+    }.get(route_type)
+
+
 def per_class_scores(
     actual_labels: list[str], predicted_labels: list[str], classes: list[str]
 ) -> dict[str, dict[str, int | float | None]]:
@@ -145,6 +162,8 @@ def markdown_report(report: dict[str, Any]) -> str:
             "",
             f"- Unsupported expected arguments excluded from semantic scoring: "
             f"{report['counts'].get('unsupported_expected_arguments', 0)}",
+            f"- Unsupported expected normalized arguments excluded from datetime scoring: "
+            f"{report['counts'].get('unsupported_expected_normalized', 0)}",
             f"- Expected arguments not observable in user/history excluded from semantic scoring: "
             f"{report['counts'].get('unobservable_expected_arguments', 0)}",
         ]
@@ -265,8 +284,11 @@ def evaluate(
             "parsed_call_cases": 0,
             "schema_valid_calls": 0,
             "unsupported_expected_arguments": 0,
+            "unsupported_expected_normalized": 0,
             "unobservable_expected_arguments": 0,
             "intent_cases": 0,
+            "intent_time_mode_cases": 0,
+            "intent_time_mode_matched": 0,
             "clarification_cases": 0,
             "clarification_correct": 0,
         }
@@ -463,6 +485,9 @@ def evaluate(
                 reasons.append("unwanted_tool_call")
 
         if "expected_normalized" in row:
+            normalized_properties = tools.get(expected_tool, {}).get("inputSchema", {}).get(
+                "properties", {}
+            )
             normalized_arguments = dict(predicted.arguments) if predicted else {}
             intent = (
                 extract_route_intent(
@@ -479,9 +504,13 @@ def evaluate(
                 derived_type = mcp_time_type(intent.get("time_mode"))
                 if derived_type:
                     normalized_arguments["type"] = derived_type
+            counts["unsupported_expected_normalized"] += sum(
+                key not in normalized_properties for key in row["expected_normalized"]
+            )
             observable_normalized = {
                 key: value
                 for key, value in row["expected_normalized"].items()
+                if key in normalized_properties
                 if not legacy_semantic_eval
                 or (
                     (key == "date" and intent.get("date") is not None)
@@ -507,6 +536,28 @@ def evaluate(
                 reasons.append("datetime_normalization_failure")
 
         expected_intent = row.get("expected_intent")
+        expected_time_mode = (
+            expected_intent.get("time_mode")
+            if isinstance(expected_intent, dict)
+            else None
+        )
+        actual_time_mode = None
+        if expected_time_mode is not None and not (
+            row.get("expected_clarification")
+            and predicted is not None
+            and valid_clarification(predicted)
+        ):
+            counts["intent_time_mode_cases"] += 1
+            raw_predicted = (
+                raw_calls[0]
+                if raw_parse_error is None and raw_call_count == 1
+                else None
+            )
+            actual_time_mode = intent_time_mode_from_call(
+                raw_predicted
+            ) or intent_time_mode_from_call(predicted)
+            if actual_time_mode == expected_time_mode:
+                counts["intent_time_mode_matched"] += 1
         actual_intent = None
         intent_mismatches: list[str] = []
         if isinstance(expected_intent, dict) and legacy_semantic_eval:
@@ -541,6 +592,8 @@ def evaluate(
             "expected_arguments_exact": expected_args_exact,
             "expected_intent": expected_intent,
             "actual_intent": actual_intent,
+            "expected_intent_time_mode": expected_time_mode,
+            "actual_intent_time_mode": actual_time_mode,
             "intent_mismatches": intent_mismatches,
             "raw_output": raw,
             "reasons": sorted(set(reasons)),
@@ -597,6 +650,9 @@ def evaluate(
         ),
         "clarification_accuracy": ratio(
             counts["clarification_correct"], counts["clarification_cases"]
+        ),
+        "intent_time_mode_accuracy": ratio(
+            counts["intent_time_mode_matched"], counts["intent_time_mode_cases"]
         ),
         "overall_class_accuracy": ratio(
             sum(a == p for a, p in zip(actual_labels, predicted_labels)), len(rows)
@@ -673,6 +729,8 @@ def main() -> None:
     parser.add_argument("--schema-mode", choices=("baked", "compact", "full"), default="baked")
     parser.add_argument("--clarification-tool", action="store_true")
     parser.add_argument("--normalize-ja", action="store_true")
+    parser.add_argument("--constrained-decode", action="store_true")
+    parser.add_argument("--prefix-cache", action="store_true")
     parser.add_argument(
         "--schema-constraint",
         action="store_true",
@@ -708,6 +766,8 @@ def main() -> None:
             args.schema_mode,
             args.clarification_tool,
             args.normalize_ja,
+            args.constrained_decode,
+            args.prefix_cache,
         )
         predictions = {
             row["id"]: router.generate(
