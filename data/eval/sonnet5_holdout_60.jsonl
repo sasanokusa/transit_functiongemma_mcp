@@ -1,0 +1,60 @@
+{"id": "sonnet2-hnc-001", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "三鷹に行く用事があるんだよね", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-002", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "帯広まで足を運びたい", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-003", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "宮崎が行き先なんだ", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-004", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "海老名から乗ることになりそう", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-005", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "出発駅は米原の予定", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-006", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "釧路を朝出る感じになる", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-007", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "小田原を経由するルートが希望", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-008", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "途中で下関を通れたらいいな", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-009", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "京浜東北線はパスしたいんだよね", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-010", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "とにかく安上がりなプランがいい", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-011", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "グリーン車で行きたい気分", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-012", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "降りる駅はまだ絞れてない", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-013", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "どこ発にするか家族と相談中", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-014", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "運賃の相場感だけ教えて", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-015", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "移動にかかる時間の見当がつかない", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-016", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "土曜の夕方に発ちたい", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-017", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "明朝6時台に動きたい", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-018", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "さっき言った行き先は忘れてほしい", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-019", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "移動の予定が飛んだのでなしで", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hnc-020", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "四国のどこかへ行ってみたい", "expected_tool": null, "missing_info": true}
+{"id": "sonnet2-hmp-001", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "三鷹駅ってやつの候補、ちょうだい", "expected_tool": "suggest_stations", "expected_arguments": {"q": "三鷹駅", "limit": 5}}
+{"id": "sonnet2-hmp-002", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "三鷹を場所辞書から引いてみて", "expected_tool": "suggest_places", "expected_arguments": {"q": "三鷹", "limit": 10}}
+{"id": "sonnet2-hmp-003", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "国分寺が駅の名前かどうか確かめたい", "expected_tool": "suggest_stations", "expected_arguments": {"q": "国分寺", "limit": 5}}
+{"id": "sonnet2-hmp-004", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "国分寺のスポット登録、確認してもらえますか", "expected_tool": "suggest_places", "expected_arguments": {"q": "国分寺", "limit": 10}}
+{"id": "sonnet2-hmp-005", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "海老名駅の読み合わせしたいから一覧出して", "expected_tool": "suggest_stations", "expected_arguments": {"q": "海老名駅", "limit": 5}}
+{"id": "sonnet2-hmp-006", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "海老名って場所枠で出るやつ？検索よろしく", "expected_tool": "suggest_places", "expected_arguments": {"q": "海老名", "limit": 10}}
+{"id": "sonnet2-hmp-007", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "小田原を駅索引から引っぱってきて", "expected_tool": "suggest_stations", "expected_arguments": {"q": "小田原", "limit": 5}}
+{"id": "sonnet2-hmp-008", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "小田原を施設側の候補で見たい", "expected_tool": "suggest_places", "expected_arguments": {"q": "小田原", "limit": 10}}
+{"id": "sonnet2-hmp-009", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "甲府駅、システム上どう登録されてます？", "expected_tool": "suggest_stations", "expected_arguments": {"q": "甲府駅", "limit": 5}}
+{"id": "sonnet2-hmp-010", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "場所判定で甲府を検索してみてほしい", "expected_tool": "suggest_places", "expected_arguments": {"q": "甲府", "limit": 10}}
+{"id": "sonnet2-hmp-011", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "沼津って駅の扱いになってる？調べて", "expected_tool": "suggest_stations", "expected_arguments": {"q": "沼津", "limit": 5}}
+{"id": "sonnet2-hmp-012", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "沼津、地点データにあるか見て", "expected_tool": "suggest_places", "expected_arguments": {"q": "沼津", "limit": 10}}
+{"id": "sonnet2-hmp-013", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "米原駅のマッチ結果を見せてもらえる？", "expected_tool": "suggest_stations", "expected_arguments": {"q": "米原駅", "limit": 5}}
+{"id": "sonnet2-hmp-014", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "米原の場所エントリを探してくれない？", "expected_tool": "suggest_places", "expected_arguments": {"q": "米原", "limit": 10}}
+{"id": "sonnet2-hmp-015", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "駅名マスタに枚方市はある？", "expected_tool": "suggest_stations", "expected_arguments": {"q": "枚方市", "limit": 5}}
+{"id": "sonnet2-hmp-016", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "枚方市をスポット名として照会して", "expected_tool": "suggest_places", "expected_arguments": {"q": "枚方市", "limit": 10}}
+{"id": "sonnet2-hmp-017", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "下関駅であいまい検索してみて", "expected_tool": "suggest_stations", "expected_arguments": {"q": "下関駅", "limit": 5}}
+{"id": "sonnet2-hmp-018", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "施設リストに下関が載ってるか調べて", "expected_tool": "suggest_places", "expected_arguments": {"q": "下関", "limit": 10}}
+{"id": "sonnet2-hmp-019", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "佐賀を駅名クエリで投げてみて", "expected_tool": "suggest_stations", "expected_arguments": {"q": "佐賀", "limit": 5}}
+{"id": "sonnet2-hmp-020", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "佐賀を場所検索の対象にしてみよう", "expected_tool": "suggest_places", "expected_arguments": {"q": "佐賀", "limit": 10}}
+{"id": "sonnet2-hmp-021", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "宮崎駅の同名候補をチェックしたい", "expected_tool": "suggest_stations", "expected_arguments": {"q": "宮崎駅", "limit": 5}}
+{"id": "sonnet2-hmp-022", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "宮崎って場所の候補、先に洗い出して", "expected_tool": "suggest_places", "expected_arguments": {"q": "宮崎", "limit": 10}}
+{"id": "sonnet2-hmp-023", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "帯広、駅としての検索結果が見たいです", "expected_tool": "suggest_stations", "expected_arguments": {"q": "帯広", "limit": 5}}
+{"id": "sonnet2-hmp-024", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "帯広の地点レコードを検索お願いします", "expected_tool": "suggest_places", "expected_arguments": {"q": "帯広", "limit": 10}}
+{"id": "sonnet2-hmp-025", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "釧路駅 これで探して", "expected_tool": "suggest_stations", "expected_arguments": {"q": "釧路駅", "limit": 5}}
+{"id": "sonnet2-hmp-026", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "釧路、場所として引き直してもらえる？", "expected_tool": "suggest_places", "expected_arguments": {"q": "釧路", "limit": 10}}
+{"id": "sonnet2-hmp-027", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "五稜郭が駅ならその候補を並べて", "expected_tool": "suggest_stations", "expected_arguments": {"q": "五稜郭", "limit": 5}}
+{"id": "sonnet2-hmp-028", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "五稜郭をロケーションで検索かけといて", "expected_tool": "suggest_places", "expected_arguments": {"q": "五稜郭", "limit": 10}}
+{"id": "sonnet2-hmp-029", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "犬山城の駅名ヒット状況を教えてほしい", "expected_tool": "suggest_stations", "expected_arguments": {"q": "犬山城", "limit": 5}}
+{"id": "sonnet2-hmp-030", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "犬山城っていうスポットの候補数が知りたい", "expected_tool": "suggest_places", "expected_arguments": {"q": "犬山城", "limit": 10}}
+{"id": "sonnet2-hmp-031", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "駅っていう前提で東大寺を検索", "expected_tool": "suggest_stations", "expected_arguments": {"q": "東大寺", "limit": 5}}
+{"id": "sonnet2-hmp-032", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "場所寄りで東大寺を調べてみて", "expected_tool": "suggest_places", "expected_arguments": {"q": "東大寺", "limit": 10}}
+{"id": "sonnet2-hmp-033", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "平等院を駅名として引き当てられる？", "expected_tool": "suggest_stations", "expected_arguments": {"q": "平等院", "limit": 5}}
+{"id": "sonnet2-hmp-034", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "平等院を施設として検索し直したい", "expected_tool": "suggest_places", "expected_arguments": {"q": "平等院", "limit": 10}}
+{"id": "sonnet2-hmp-035", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "栗林公園、駅の候補として出るか試してみようか", "expected_tool": "suggest_stations", "expected_arguments": {"q": "栗林公園", "limit": 5}}
+{"id": "sonnet2-hmp-036", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "栗林公園の場所ヒットがあるか試して", "expected_tool": "suggest_places", "expected_arguments": {"q": "栗林公園", "limit": 10}}
+{"id": "sonnet2-hmp-037", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "桜島という駅名の照会をお願いできますか", "expected_tool": "suggest_stations", "expected_arguments": {"q": "桜島", "limit": 5}}
+{"id": "sonnet2-hmp-038", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "桜島、スポット扱いでリスト化して", "expected_tool": "suggest_places", "expected_arguments": {"q": "桜島", "limit": 10}}
+{"id": "sonnet2-hmp-039", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "ハウステンボスを駅名側で検索しなおして", "expected_tool": "suggest_stations", "expected_arguments": {"q": "ハウステンボス", "limit": 5}}
+{"id": "sonnet2-hmp-040", "reference_datetime": "2026-07-08 09:00 Asia/Tokyo", "user": "ハウステンボスを場所名として当ててみて", "expected_tool": "suggest_places", "expected_arguments": {"q": "ハウステンボス", "limit": 10}}
