@@ -10,6 +10,8 @@ Environment=HF_HUB_OFFLINE=1
 Environment=XDG_CACHE_HOME=/path/to/cache
 Environment=FUNCTIONGEMMA_ADAPTER=/path/to/transit_functiongemma_mcp/outputs/functiongemma-transit-intent-r7
 Environment=FUNCTIONGEMMA_NORMALIZE_JA=1
+# Prefix KV cache is opt-in and requires both this env var and --prefix-cache.
+# Environment=FUNCTIONGEMMA_PREFIX_CACHE=1
 Environment=TRANSIT_DEFAULT_GRAPHICAL=1
 Environment=TRANSIT_MCP_TIMEOUT=15
 Environment=TRANSIT_MCP_RETRIES=2
@@ -26,6 +28,7 @@ Environment=TRANSIT_BEHAVIOR_LOG_USER_QUERY=1
 Environment=TRANSIT_BEHAVIOR_LOG_ANSWER=1
 Environment=TRANSIT_BEHAVIOR_LOG_RETENTION_DAYS=45
 Environment=TRANSIT_BEHAVIOR_LOG_DIR=/path/to/transit_functiongemma_mcp/artifacts/behavior_logs
+# Add --prefix-cache to ExecStart when FUNCTIONGEMMA_PREFIX_CACHE=1 is set.
 ExecStart=/path/to/venvs/transit-functiongemma/bin/python /path/to/transit_functiongemma_mcp/web_api.py --host 127.0.0.1 --port 8091
 Restart=on-failure
 RestartSec=5

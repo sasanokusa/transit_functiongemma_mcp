@@ -103,6 +103,10 @@ python scripts/mcp_client.py \
   --model-output '<start_function_call>call:suggest_stations{q:<escape>東京駅<escape>,limit:5}<end_function_call>'
 ```
 
+`FUNCTIONGEMMA_CONSTRAINED_DECODE=1` と `--constrained-decode` を同時に指定すると、推論時に1件のtool callまたはno-callだけを許す最小文法制約をかけます。
+`FUNCTIONGEMMA_PREFIX_CACHE=1` と `--prefix-cache` を同時に指定すると、baked modeの固定developer prefixをKV cache化してPyTorch推論のprefillを削減します。
+prefixが1 tokenでも一致しない入力では自動的に従来のfull prompt生成へフォールバックします。
+
 `scripts/mcp_client.py` は次を満たさない出力を実行しません。
 
 - FunctionGemma形式で厳密にparseできる
@@ -127,6 +131,13 @@ python evaluation/eval_toolcall.py --predictions data/eval/predictions_example.j
 python evaluation/eval_toolcall.py --run-model \
   --adapter outputs/functiongemma-transit-lora
 ```
+
+生成時の余分なresponse tokenを抑える実験は、環境変数とCLIの両方を指定したときだけ有効です:
+`FUNCTIONGEMMA_CONSTRAINED_DECODE=1 python evaluation/eval_toolcall.py --run-model --constrained-decode ...`
+PyTorch推論の固定prefix cacheも同様に、`FUNCTIONGEMMA_PREFIX_CACHE=1` と `--prefix-cache` を両方指定したときだけ有効です。
+
+GGUFモデルを既存採点器へ通すには `python scripts/generate_gguf_predictions.py --dataset data/eval/sonnet5_holdout_60.jsonl --gguf gguf_work/r8b_Q6_K.gguf --output artifacts/predictions.jsonl` でpredictionを作り、
+`python evaluation/eval_toolcall.py --dataset data/eval/sonnet5_holdout_60.jsonl --predictions artifacts/predictions.jsonl` を実行します。
 
 出力指標は `parse_success_rate`、`tool_name_accuracy`、`required_arguments_satisfaction_rate`、`datetime_normalization_success_rate`、`no_call_when_missing_info_rate` です。詳細は `artifacts/eval_report.json` に保存されます。
 
@@ -197,6 +208,8 @@ source-only検査100%です。詳細は `artifacts/eval_independent_holdout_300.
 評価器は、現行MCP schemaに存在しない期待引数と、user/historyから観測できない期待値を
 件数付きで意味評価から除外します。これはモデルに入力外の値を推測させないためで、raw
 model指標、schema制約後の指標、除外件数を別々に保存します。
+
+epoch別adapterから外部dev指標でbestを選ぶには `python scripts/select_checkpoint.py --run outputs/<run>` を使います。GPUなしの配線確認は `--dry-run --dev-sample N` で行えます。
 
 ## 注意
 

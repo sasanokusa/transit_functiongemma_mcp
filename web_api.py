@@ -321,6 +321,7 @@ class TransitAPI:
         adapter: str,
         schema_mode: str = "baked",
         normalize_ja: bool = False,
+        prefix_cache: bool = False,
     ) -> None:
         from transit_functiongemma.infer import ToolRouter
 
@@ -339,6 +340,7 @@ class TransitAPI:
             schema_mode=schema_mode,
             clarification_tool=True,
             normalize_ja=normalize_ja,
+            prefix_cache=prefix_cache,
         )
         self.sessions: dict[str, dict[str, Any]] = {}
         self.ui_lock = threading.Lock()
@@ -769,9 +771,10 @@ def main() -> None:
         action=argparse.BooleanOptionalAction,
         default=os.getenv("FUNCTIONGEMMA_NORMALIZE_JA", "0") == "1",
     )
+    parser.add_argument("--prefix-cache", action="store_true")
     args = parser.parse_args()
 
-    api = TransitAPI(args.adapter, args.schema_mode, args.normalize_ja)
+    api = TransitAPI(args.adapter, args.schema_mode, args.normalize_ja, args.prefix_cache)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.api = api  # type: ignore[attr-defined]
     server.limiter = SlidingWindowRateLimiter(  # type: ignore[attr-defined]

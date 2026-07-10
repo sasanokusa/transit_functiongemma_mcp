@@ -14,10 +14,43 @@ from pathlib import Path
 import torch
 from datasets import Dataset
 from peft import LoraConfig, PeftModel, prepare_model_for_kbit_training
-from transformers import AutoModelForCausalLM, AutoProcessor, BitsAndBytesConfig, set_seed
+from transformers import (
+    AutoModelForCausalLM,
+    AutoProcessor,
+    BitsAndBytesConfig,
+    TrainerCallback,
+    set_seed,
+)
 from trl import SFTConfig, SFTTrainer
 
 from transit_functiongemma.config import MODEL_ID
+
+
+class SaveEveryEpochCallback(TrainerCallback):
+    def __init__(self, output_dir: Path, processor: object):
+        self.output_dir = output_dir
+        self.processor = processor
+        self.saved_epochs: set[int] = set()
+
+    def on_epoch_end(self, args, state, control, **kwargs):  # type: ignore[no-untyped-def]
+        if state.epoch is None:
+            return control
+        epoch = int(round(state.epoch))
+        if epoch <= 0 or abs(float(state.epoch) - epoch) > 1e-6:
+            return control
+        if epoch in self.saved_epochs:
+            return control
+        epoch_dir = self.output_dir / f"epoch-{epoch}"
+        model = kwargs.get("model")
+        if model is None:
+            return control
+        epoch_dir.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(str(epoch_dir))
+        if hasattr(self.processor, "save_pretrained"):
+            self.processor.save_pretrained(str(epoch_dir))
+        self.saved_epochs.add(epoch)
+        print(f"adapter checkpoint saved to {epoch_dir}")
+        return control
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,6 +76,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gradient-accumulation-steps", type=int, default=16)
     parser.add_argument("--eval-ratio", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--save-every-epoch",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Save adapter snapshots to output-dir/epoch-N after every epoch.",
+    )
     return parser.parse_args()
 
 
@@ -168,6 +207,8 @@ def main() -> None:
     if not args.init_adapter:
         trainer_kwargs["peft_config"] = peft_config
     trainer = SFTTrainer(**trainer_kwargs)
+    if args.save_every_epoch:
+        trainer.add_callback(SaveEveryEpochCallback(args.output_dir, processor))
     if trainer.accelerator.scaler is not None:
         # PyTorch's default fp16 loss scale (65536) overflows FunctionGemma's
         # gradients on the GTX 1650 before the scaler can adapt. Start at 1;

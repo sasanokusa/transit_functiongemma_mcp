@@ -52,6 +52,9 @@ def _text_coordinate_pairs(text: str) -> list[tuple[str, str]]:
 
 _COORDINATE_SNAP_TOLERANCE = 0.05
 _TIME_PAD_RE = re.compile(r"(\d):(\d{2})(?::(\d{2}))?")
+_DATE_TIME_REPAIR_TOOLS = {"station_departures", "plan_journey", "plan_route_map"}
+_DATE_SCHEMA_RE = re.compile(r"^\d{8}$")
+_TIME_SCHEMA_RE = re.compile(r"^\d{1,2}:\d{2}(?::\d{2})?$")
 
 
 def repair_tool_call_values(
@@ -60,9 +63,11 @@ def repair_tool_call_values(
     """Restore exact user-written values that a small model cannot copy reliably.
 
     Value fidelity only: coordinate digits, explicit IDs, relative-date arithmetic,
-    and time zero-padding. The tool name is never changed and no slot is inferred
-    that the model did not already choose (except a date derived from an explicit
-    relative-day word, which is calendar arithmetic rather than intent parsing).
+    and explicit clock-string transcription/format repair. The tool name is never
+    changed. Dates may be filled from explicit relative-day words for tools whose
+    schema has a YYYYMMDD date slot; times may be filled or repaired only from a
+    clock expression written in the user text. Special-time intent such as
+    終電/始発 is not converted into a route type here.
     """
     original = _clean(text)
     arguments = dict(call.arguments)
@@ -88,21 +93,27 @@ def repair_tool_call_values(
             arguments["id"] = next(iter(ids))
 
     # Relative dates: calendar arithmetic belongs to the runtime, not the model.
-    # Only station_departures is repaired; its YYYYMMDD format is schema-verified.
-    if call.name == "station_departures":
+    # Apply only to tools whose MCP schema exposes date as YYYYMMDD.
+    if call.name in _DATE_TIME_REPAIR_TOOLS:
         date_value = normalize_date(original, reference_datetime)
-        if date_value:
+        if date_value and _DATE_SCHEMA_RE.fullmatch(date_value):
             arguments["date"] = date_value
 
-    # Time notation: zero-pad H:MM so MCP always receives HH:MM.
-    time_value = arguments.get("time")
-    if isinstance(time_value, str):
-        match = _TIME_PAD_RE.fullmatch(time_value)
-        if match:
-            arguments["time"] = (
-                f"{int(match.group(1)):02d}:{match.group(2)}"
-                + (f":{match.group(3)}" if match.group(3) else "")
-            )
+    # Time notation: copy or repair only when the user wrote a clock expression.
+    # This avoids guessing missing times or turning 終電/始発 into route type.
+    if call.name in _DATE_TIME_REPAIR_TOOLS:
+        text_time = normalize_time(original)
+        if text_time and _TIME_SCHEMA_RE.fullmatch(text_time):
+            arguments["time"] = text_time
+        else:
+            time_value = arguments.get("time")
+            if isinstance(time_value, str):
+                match = _TIME_PAD_RE.fullmatch(time_value)
+                if match and time_value in original:
+                    arguments["time"] = (
+                        f"{int(match.group(1)):02d}:{match.group(2)}"
+                        + (f":{match.group(3)}" if match.group(3) else "")
+                    )
 
     if arguments == call.arguments:
         return call

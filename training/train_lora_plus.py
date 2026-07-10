@@ -14,13 +14,46 @@ from pathlib import Path
 import torch
 from datasets import Dataset
 from peft import LoraConfig, prepare_model_for_kbit_training
-from transformers import AutoModelForCausalLM, AutoProcessor, BitsAndBytesConfig, set_seed
+from transformers import (
+    AutoModelForCausalLM,
+    AutoProcessor,
+    BitsAndBytesConfig,
+    TrainerCallback,
+    set_seed,
+)
 from trl import SFTConfig, SFTTrainer
 
 from transit_functiongemma.config import MODEL_ID
 
 ATTENTION_MODULES = ["q_proj", "k_proj", "v_proj", "o_proj"]
 MLP_MODULES = ["gate_proj", "up_proj", "down_proj"]
+
+
+class SaveEveryEpochCallback(TrainerCallback):
+    def __init__(self, output_dir: Path, processor: object):
+        self.output_dir = output_dir
+        self.processor = processor
+        self.saved_epochs: set[int] = set()
+
+    def on_epoch_end(self, args, state, control, **kwargs):  # type: ignore[no-untyped-def]
+        if state.epoch is None:
+            return control
+        epoch = int(round(state.epoch))
+        if epoch <= 0 or abs(float(state.epoch) - epoch) > 1e-6:
+            return control
+        if epoch in self.saved_epochs:
+            return control
+        epoch_dir = self.output_dir / f"epoch-{epoch}"
+        model = kwargs.get("model")
+        if model is None:
+            return control
+        epoch_dir.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(str(epoch_dir))
+        if hasattr(self.processor, "save_pretrained"):
+            self.processor.save_pretrained(str(epoch_dir))
+        self.saved_epochs.add(epoch)
+        print(f"adapter checkpoint saved to {epoch_dir}")
+        return control
 
 
 def parse_args() -> argparse.Namespace:
@@ -55,6 +88,12 @@ def parse_args() -> argparse.Namespace:
         "--resume-from-checkpoint",
         type=Path,
         help="Resume optimizer, scheduler, RNG, and adapter state from a Trainer checkpoint.",
+    )
+    parser.add_argument(
+        "--save-every-epoch",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Save adapter snapshots to output-dir/epoch-N after every epoch.",
     )
     return parser.parse_args()
 
@@ -164,6 +203,8 @@ def main() -> None:
         processing_class=processor,
         peft_config=peft_config,
     )
+    if args.save_every_epoch:
+        trainer.add_callback(SaveEveryEpochCallback(args.output_dir, processor))
     if trainer.accelerator.scaler is not None:
         trainer.accelerator.scaler = torch.amp.GradScaler(
             "cuda", init_scale=1.0, growth_interval=2000

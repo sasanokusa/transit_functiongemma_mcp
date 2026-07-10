@@ -1,6 +1,7 @@
 # Secrets / local settings
 .env
 .claude/
+.codex/
 
 # OS / editor noise
 .DS_Store
@@ -29,3 +30,6 @@ staging_*/
 # Dataset backups and baked model build context
 *.bak
 deploy/build/
+
+# GGUF conversion workspace (large model binaries, not for distribution)
+gguf_work/

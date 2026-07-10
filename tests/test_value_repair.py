@@ -106,6 +106,26 @@ class RelativeDateRepairTest(unittest.TestCase):
         repaired = repair_tool_call_values(call, "明日使う新宿の駅候補", REFERENCE)
         self.assertNotIn("date", repaired.arguments)
 
+    def test_plan_journey_tomorrow_date_is_fixed(self):
+        call = ToolCall(
+            "plan_journey",
+            {"from": "demo-feed:tokyo", "to": "demo-feed:ueno", "date": "20260629"},
+        )
+        repaired = repair_tool_call_values(
+            call, "明日、東京から上野まで行きたい", REFERENCE
+        )
+        self.assertEqual(repaired.arguments["date"], "20260630")
+
+    def test_plan_route_map_today_date_is_filled(self):
+        call = ToolCall(
+            "plan_route_map",
+            {"from": "demo-feed:tokyo", "to": "demo-feed:ueno"},
+        )
+        repaired = repair_tool_call_values(
+            call, "今日、東京から上野まで地図で", REFERENCE
+        )
+        self.assertEqual(repaired.arguments["date"], "20260629")
+
 
 class TimePaddingTest(unittest.TestCase):
     def test_single_digit_hour_is_padded(self):
@@ -125,6 +145,36 @@ class TimePaddingTest(unittest.TestCase):
             call, "demo-feed:shinjuku で8時半の発車案内", REFERENCE
         )
         self.assertEqual(repaired.arguments["time"], "08:30")
+
+    def test_plan_journey_copies_explicit_japanese_clock(self):
+        call = ToolCall(
+            "plan_journey",
+            {"from": "demo-feed:tokyo", "to": "demo-feed:ueno", "time": "16:00"},
+        )
+        repaired = repair_tool_call_values(
+            call, "東京から上野まで16時30分に出たい", REFERENCE
+        )
+        self.assertEqual(repaired.arguments["time"], "16:30")
+
+    def test_plan_route_map_copies_explicit_short_clock(self):
+        call = ToolCall(
+            "plan_route_map",
+            {"from": "demo-feed:tokyo", "to": "demo-feed:ueno"},
+        )
+        repaired = repair_tool_call_values(
+            call, "東京から上野まで9時に地図で", REFERENCE
+        )
+        self.assertEqual(repaired.arguments["time"], "09:00")
+
+    def test_time_is_not_added_without_user_clock(self):
+        call = ToolCall(
+            "plan_journey",
+            {"from": "demo-feed:tokyo", "to": "demo-feed:ueno"},
+        )
+        repaired = repair_tool_call_values(
+            call, "東京から上野まで早めに行きたい", REFERENCE
+        )
+        self.assertNotIn("time", repaired.arguments)
 
 
 class SafetyTest(unittest.TestCase):
