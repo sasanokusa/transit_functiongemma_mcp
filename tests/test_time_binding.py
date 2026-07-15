@@ -10,20 +10,22 @@ STATIONS = [
 
 
 class TimeBindingTest(unittest.TestCase):
-    def test_model_arrival_slot_binds_arrival(self) -> None:
+    def test_preserved_arrival_intent_binds_arrival(self) -> None:
         result = _route_arguments(
             "plan_journey",
-            {"time": "9:00"},
+            {"time": "model-copy-must-not-win"},
             STATIONS,
-            {"time_mode": "arrive_by"},
+            {"time_mode": "arrive_by", "time": "09:00"},
         )
         self.assertEqual(result["type"], "arrival")
+        self.assertEqual(result["time"], "09:00")
 
-    def test_model_departure_slot_binds_departure(self) -> None:
+    def test_preserved_departure_intent_binds_departure(self) -> None:
         result = _route_arguments(
             "plan_journey",
-            {"time": "9:00"},
+            {"time": "model-copy-must-not-win"},
             STATIONS,
-            {"time_mode": "departure_at"},
+            {"time_mode": "departure_at", "time": "09:00"},
         )
         self.assertEqual(result["type"], "departure")
+        self.assertEqual(result["time"], "09:00")

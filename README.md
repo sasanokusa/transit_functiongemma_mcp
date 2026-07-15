@@ -190,11 +190,14 @@ priority / avoid / via / mode / time_modeを抽出・補完しません。
 ```bash
 python evaluation/eval_pipeline.py \
   --adapter outputs/functiongemma-transit-ja-real-r4 \
+  --clarification-tool \
   --max-routes 1
 ```
 
 raw envelope、normalized JSON、renderer回答、request/MCP latency、timeout、retryを
 `artifacts/e2e_*`と`artifacts/latency_report.json`へ保存します。
+固定7シナリオでは、不足情報をローカルで質問しMCPへ送らないことも評価するため、
+`--clarification-tool`を明示します。
 `--max-routes 1`はレイテンシゲート用にMCPの探索候補数も1件へ制限します。Web UIは
 3候補表示を維持します。
 

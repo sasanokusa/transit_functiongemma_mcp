@@ -126,6 +126,22 @@ def render_router_prompt(
     )
 
 
+def load_router_processor(base_model: str, adapter: str | None = None) -> Any:
+    """Load adapter processor metadata when present, otherwise use the base model."""
+    source = adapter or base_model
+    try:
+        return AutoProcessor.from_pretrained(source)
+    except (OSError, ValueError):
+        if not adapter:
+            raise
+        logger.warning(
+            "Processor metadata is unavailable in adapter %s; loading it from base model %s.",
+            adapter,
+            base_model,
+        )
+        return AutoProcessor.from_pretrained(base_model)
+
+
 class ToolRouter:
     def __init__(
         self,
@@ -138,7 +154,7 @@ class ToolRouter:
         constrained_decode: bool = False,
         prefix_cache: bool = False,
     ):
-        self.processor = AutoProcessor.from_pretrained(adapter or base_model)
+        self.processor = load_router_processor(base_model, adapter)
         if torch.cuda.is_available():
             # GTX 1650: directly storing FunctionGemma's large RMSNorm weights as
             # fp16 produces NaN logits. The 270M fp32 base still fits in 4GB;

@@ -18,6 +18,7 @@ from transit_functiongemma.local_tools import (
     ASK_CLARIFICATION,
     RESOLVE_ROUTE_REQUEST,
     execute_local_tool,
+    infer_missing_fields,
     is_local_tool,
 )
 from transit_functiongemma.route_constraints import apply_route_constraints, normalize_station_name
@@ -94,6 +95,24 @@ def handle_local_call(name: str, arguments: dict[str, Any]) -> str:
     return USER_ERROR
 
 
+def _refine_clarification_call(call: ToolCall, user_text: str) -> ToolCall:
+    """Remove only demonstrably present fields from a model clarification."""
+    if call.name != ASK_CLARIFICATION:
+        return call
+    model_missing = call.arguments.get("missing")
+    if not isinstance(model_missing, list) or not model_missing:
+        return call
+    runtime_missing = infer_missing_fields(user_text)
+    model_set = set(model_missing)
+    runtime_set = set(runtime_missing)
+    if not runtime_set or not runtime_set < model_set:
+        return call
+    arguments = dict(call.arguments)
+    arguments["missing"] = runtime_missing
+    arguments["question"] = render_clarification(runtime_missing)
+    return ToolCall(call.name, arguments)
+
+
 def _save_normalized(data: dict[str, Any], destination: Path, tool_name: str) -> Path:
     if destination.suffix.lower() == ".json":
         path = destination
@@ -144,10 +163,33 @@ def _route_arguments(
     route_intent: dict[str, Any] | None = None,
     num_itineraries: int | None = None,
 ) -> dict[str, Any]:
-    """Bind client-resolved endpoints and discard invalid optional enum guesses."""
+    """Build planner arguments from resolved state and the preserved route intent.
+
+    When ``route_intent`` is provided it is authoritative for every semantic
+    planner argument.  In particular, values from ``model_arguments`` are not
+    allowed to leak into the final call: the small model extracts intent once,
+    while endpoint binding and schema-level enum conversion belong here.
+    """
     arguments = dict(model_arguments)
     if tool_name not in {"plan_journey", "plan_route_map"}:
         return arguments
+    intent_owned = route_intent is not None
+    if intent_owned:
+        for key in (
+            "from",
+            "to",
+            "fromLabel",
+            "toLabel",
+            "via",
+            "viaLabel",
+            "date",
+            "time",
+            "type",
+            "strategy",
+            "avoidModes",
+            "numItineraries",
+        ):
+            arguments.pop(key, None)
     if len(resolved_stations) >= 2:
         origin, destination = resolved_stations[0], resolved_stations[-1]
         arguments.update(
@@ -162,6 +204,10 @@ def _route_arguments(
             arguments["via"] = [station["endpoint"] for station in resolved_stations[1:-1]]
             arguments["viaLabel"] = [station["name"] for station in resolved_stations[1:-1]]
     intent = route_intent or {}
+    if intent_owned:
+        for key in ("date", "time"):
+            if intent.get(key):
+                arguments[key] = intent[key]
     explicit_type = {
         "last_train": "last",
         "first_train": "first",
@@ -175,15 +221,25 @@ def _route_arguments(
         arguments.pop("type", None)
     if isinstance(num_itineraries, int) and 1 <= num_itineraries <= 6:
         arguments["numItineraries"] = num_itineraries
-    if tool_name == "plan_route_map" and arguments.get("strategy") not in {
-        None,
-        "balanced",
-        "fastest",
-        "fewestTransfers",
-        "lowestFare",
-        "shortestWalk",
-    }:
-        arguments.pop("strategy", None)
+    if intent_owned and intent.get("avoid_modes"):
+        arguments["avoidModes"] = ",".join(intent["avoid_modes"])
+    if tool_name == "plan_route_map":
+        if intent_owned:
+            arguments["strategy"] = {
+                "fast": "fastest",
+                "cheap": "lowestFare",
+                "few_transfers": "fewestTransfers",
+                "less_walk": "shortestWalk",
+            }.get(intent.get("priority"), "balanced")
+        elif arguments.get("strategy") not in {
+            None,
+            "balanced",
+            "fastest",
+            "fewestTransfers",
+            "lowestFare",
+            "shortestWalk",
+        }:
+            arguments.pop("strategy", None)
     return arguments
 
 
@@ -208,6 +264,8 @@ def _route_candidate_limits(
 def _planned_call_from_model_intent(
     route_intent: dict[str, Any],
     resolved_stations: list[dict[str, Any]],
+    *,
+    num_itineraries: int | None = None,
 ) -> ToolCall:
     """Turn a schema-valid model intent into deterministic planner calls."""
     via = [str(value) for value in route_intent.get("via_station_texts") or []]
@@ -223,26 +281,13 @@ def _planned_call_from_model_intent(
         )
 
     tool_name = "plan_route_map" if route_intent.get("graphical") else "plan_journey"
-    arguments: dict[str, Any] = {}
-    for key in ("date", "time"):
-        if route_intent.get(key):
-            arguments[key] = route_intent[key]
-    route_type = {
-        "last_train": "last",
-        "first_train": "first",
-        "arrive_by": "arrival",
-        "departure_at": "departure",
-        "depart_at": "departure",
-    }.get(route_intent.get("time_mode"))
-    if route_type:
-        arguments["type"] = route_type
-    if tool_name == "plan_route_map":
-        arguments["strategy"] = {
-            "fast": "fastest",
-            "cheap": "lowestFare",
-            "few_transfers": "fewestTransfers",
-            "less_walk": "shortestWalk",
-        }.get(route_intent.get("priority"), "balanced")
+    arguments = _route_arguments(
+        tool_name,
+        {},
+        resolved_stations,
+        route_intent,
+        num_itineraries=num_itineraries,
+    )
     return ToolCall(tool_name, arguments)
 
 
@@ -329,7 +374,9 @@ def run_pipeline(
             calls = None
             if route_request:
                 planned_call = _planned_call_from_model_intent(
-                    route_hints, resolved_stations
+                    route_hints,
+                    resolved_stations,
+                    num_itineraries=candidate_count,
                 )
                 calls = [planned_call]
                 if trace is not None:
@@ -395,6 +442,7 @@ def run_pipeline(
                 raise RuntimeError(f"tool callは1件である必要があります: {len(calls)}件")
 
             call = calls[0]
+            call = _refine_clarification_call(call, user_text)
             if trace is not None:
                 trace["tool_calls"].append(call.as_dict())
             if is_local_tool(call.name):
@@ -432,10 +480,15 @@ def run_pipeline(
                         trace["no_call"] = True
                 finish_timing()
                 return answer
-            signature = json.dumps(call.as_dict(), ensure_ascii=False, sort_keys=True)
-            if signature in seen_calls:
-                raise RuntimeError("同じtool callが繰り返されたため停止しました")
-            seen_calls.add(signature)
+            # Repetition is suspicious only for model-generated MCP calls. The
+            # deterministic route planner may legitimately resolve the same
+            # station at different stages (same origin/destination or a repeated
+            # via), and route_stage itself guarantees forward progress.
+            if not route_request:
+                signature = json.dumps(call.as_dict(), ensure_ascii=False, sort_keys=True)
+                if signature in seen_calls:
+                    raise RuntimeError("同じtool callが繰り返されたため停止しました")
+                seen_calls.add(signature)
 
             # During route planning, resolve a named station to a physical geo cluster.
             # This avoids choosing a line/feed before the journey planner runs.
@@ -522,15 +575,19 @@ def run_pipeline(
                 continue
 
             # MCPClient enforces both the allow-list and the tool's JSON Schema.
-            execution_arguments = _route_arguments(
-                call.name,
-                call.arguments,
-                resolved_stations,
-                route_hints,
-                num_itineraries=candidate_count,
+            # A route-request planner call is already complete and authoritative.
+            # Direct non-route tool calls retain the legacy value-safety binding.
+            execution_arguments = (
+                dict(call.arguments)
+                if route_request
+                else _route_arguments(
+                    call.name,
+                    call.arguments,
+                    resolved_stations,
+                    None,
+                    num_itineraries=candidate_count,
+                )
             )
-            if route_hints.get("avoid_modes"):
-                execution_arguments["avoidModes"] = ",".join(route_hints["avoid_modes"])
             validate_tool_call(
                 type(call)(call.name, execution_arguments),
                 tools,
@@ -654,7 +711,7 @@ def main() -> None:
     parser.add_argument("--save-raw", type=Path, default=Path("artifacts/mcp"))
     parser.add_argument("--save-normalized", type=Path)
     parser.add_argument("--max-routes", type=int, default=3)
-    parser.add_argument("--max-tool-steps", type=int, default=4)
+    parser.add_argument("--max-tool-steps", type=int, default=7)
     parser.add_argument("--clarification-tool", action="store_true")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--normalize-ja", action="store_true")

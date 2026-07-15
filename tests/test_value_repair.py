@@ -126,6 +126,29 @@ class RelativeDateRepairTest(unittest.TestCase):
         )
         self.assertEqual(repaired.arguments["date"], "20260629")
 
+    def test_route_request_tomorrow_repairs_only_value_slots(self):
+        call = ToolCall(
+            "resolve_route_request",
+            {
+                "origin_text": "東京",
+                "destination_text": "上野",
+                "graphical": True,
+                "priority": "cheap",
+                "time_mode": "arrive_by",
+                "date": "20260629",
+                "time": "08:00",
+            },
+        )
+        repaired = repair_tool_call_values(
+            call, "明日9時に東京から上野へ着きたい。安い順を地図で", REFERENCE
+        )
+        self.assertEqual(repaired.name, "resolve_route_request")
+        self.assertEqual(repaired.arguments["date"], "20260630")
+        self.assertEqual(repaired.arguments["time"], "09:00")
+        self.assertEqual(repaired.arguments["time_mode"], "arrive_by")
+        self.assertEqual(repaired.arguments["priority"], "cheap")
+        self.assertTrue(repaired.arguments["graphical"])
+
 
 class TimePaddingTest(unittest.TestCase):
     def test_single_digit_hour_is_padded(self):

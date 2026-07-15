@@ -52,7 +52,14 @@ def _text_coordinate_pairs(text: str) -> list[tuple[str, str]]:
 
 _COORDINATE_SNAP_TOLERANCE = 0.05
 _TIME_PAD_RE = re.compile(r"(\d):(\d{2})(?::(\d{2}))?")
-_DATE_TIME_REPAIR_TOOLS = {"station_departures", "plan_journey", "plan_route_map"}
+_DATE_TIME_REPAIR_TOOLS = {
+    "station_departures",
+    "plan_journey",
+    "plan_route_map",
+    # Kept as a string to avoid coupling this low-level value repair module to
+    # local_tools. The route intent is repaired before deterministic planning.
+    "resolve_route_request",
+}
 _DATE_SCHEMA_RE = re.compile(r"^\d{8}$")
 _TIME_SCHEMA_RE = re.compile(r"^\d{1,2}:\d{2}(?::\d{2})?$")
 

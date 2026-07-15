@@ -20,6 +20,25 @@
 Raw model parse accuracy and schema-constrained final accuracy are reported separately. A release
 must not hide deterioration in the raw metric even when deterministic normalization repairs it.
 
+## iPhone demo gates (2026-07-15)
+
+- [x] v1.0.0 Q6_K GGUF is bundled by SHA-256 and runs on the connected iPhone
+- [x] Signed arm64 device build succeeds with the pinned llama.cpp XCFramework
+- [x] Japanese route smoke returns two options and six map segments
+- [x] Route summary is visible while the slower map request is still running
+- [x] A failed map request preserves the already returned route summary
+- [x] Unsupported Cyrillic input performs no model/MCP call and shows localized guidance
+- [x] Raw model/tool output is hidden unless the debug environment flag is explicit
+- [x] Speech input starts recording on device without an authorization/runtime error
+- [x] Keyboard can be dismissed by Done, scrolling, background tap, search, or voice input
+- [ ] Assign the prepared opaque 1024×1024 icon after an iOS Simulator runtime is available to `actool`
+- [ ] Re-run a visual pass on the installed icon, progressive map placeholder, and final timeline
+
+Measured Transit MCP latency is currently dominated by server-side planning: `plan_journey`
+roughly 11–30 seconds and `plan_route_map` roughly 15–27 seconds in observed runs. Network setup is below 250 ms
+from the development Mac and below 100 ms from GB10. The progressive UI mitigates this for the demo,
+but server-side p95 work remains a public-release requirement.
+
 ## Runtime safety
 
 - [x] Unknown tools and malformed calls are rejected before MCP execution
@@ -63,6 +82,7 @@ python evaluation/eval_toolcall.py \
 
 python evaluation/eval_pipeline.py \
   --adapter outputs/functiongemma-transit-ja-real-r4 \
+  --clarification-tool \
   --max-routes 1
 ```
 
