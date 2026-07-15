@@ -10,20 +10,115 @@ const elapsed = document.querySelector('#elapsed');
 const serviceState = document.querySelector('#serviceState');
 const choices = document.querySelector('#choices');
 const resultTitle = document.querySelector('#resultTitle');
-const tracePanel = document.querySelector('#tracePanel');
-const traceOutput = document.querySelector('#traceOutput');
 const mapContainer = document.querySelector('#mapContainer');
+const mapSection = document.querySelector('#mapSection');
+const progressSteps = [...document.querySelectorAll('#progressSteps li')];
+const dismissKeyboard = document.querySelector('#dismissKeyboard');
+const appMenu = document.querySelector('#appMenu');
+const menuButton = document.querySelector('#menuButton');
+const closeMenu = document.querySelector('#closeMenu');
+const prefersMap = document.querySelector('#prefersMap');
+const webBackend = document.querySelector('#webBackend');
+const routerRelease = document.querySelector('#routerRelease');
 let conversationId = null;
 let activeTimer = null;
 let mapAppHtml = null;
 let activeMapCleanup = null;
+let lastMapResult = null;
+let mapRenderGeneration = 0;
+
+const languageMessage = '現在は日本語の乗換案内に対応しています。\n「〇〇駅から〇〇駅」のように、出発地と目的地を日本語で入力してください。';
+const constraintMessage = '現在のデモ版では、駅・路線・交通機関の除外や指定条件にはまだ対応していません。\n条件を外して、出発地と目的地を入力してください。';
+const unsupportedConstraints = [
+  /[^、,。\s]+?(?:駅)?(?:だけ)?(?:は|を)?(?:避け(?:て|たい|る)|通りたくない|通らない|通らず|除外(?:して|する)?|除いて|外して)/u,
+  /[^、,。\s]+?(?:駅)?(?:を)?経由(?:(?:は|が)?嫌|しない|したくない|したくありません)/u,
+  /(?:[\p{L}\p{N}・ー]+線|JR|地下鉄|東京メトロ|都営地下鉄|バス|電車|鉄道|列車|新幹線|飛行機|航空|フェリー|船|モノレール|路面電車|タクシー|徒歩)\s*で/u,
+  /(?:[\p{L}\p{N}・ー]+線|JR|地下鉄|東京メトロ|都営地下鉄|バス|電車|鉄道|列車|新幹線|飛行機|航空|フェリー|船|モノレール|路面電車|タクシー|徒歩)(?:は|を)?(?:使わない|使いたくない|使わず|避け(?:て|たい)?|嫌|なし|以外|だけ|のみ|限定|指定)/u,
+  /(?:[\p{L}\p{N}・ー]+線|JR|地下鉄|東京メトロ|都営地下鉄|バス|電車|鉄道|列車|新幹線|飛行機|航空|フェリー|船|モノレール|路面電車|タクシー)(?:を|で|が)?(?:使って|使いたい|利用して|利用したい|乗って|乗りたい|行って|行きたい|経由|優先|希望|指定|いい)/u,
+  /[^、,。\s]+?(?:駅)?(?:は|が)(?:嫌|いや)/u,
+  /[^、,。\s]+?(?:駅)?(?:なし|以外)(?:で)?/u,
+];
+
+function rejectionMessage(value) {
+  const normalized = value.normalize('NFKC').trim().replace(/\s+/gu, ' ');
+  const letters = normalized.match(/\p{L}/gu) || [];
+  let hasJapanese = false;
+  let hasLatin = false;
+  for (const letter of letters) {
+    if (letter === '\u30fc' || letter === '\uff70') continue;
+    if (/^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]$/u.test(letter)) {
+      hasJapanese = true;
+    } else if (/^\p{Script=Latin}$/u.test(letter)) {
+      hasLatin = true;
+    } else {
+      return languageMessage;
+    }
+  }
+  if (hasLatin && !hasJapanese) return languageMessage;
+  if (unsupportedConstraints.some((pattern) => pattern.test(normalized))) return constraintMessage;
+  return null;
+}
+
+function publicText(value, fallback) {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  const trimmed = value.trim();
+  if (/^(?:[\[{]|```json)/i.test(trimmed) || /<\/?(?:start_function_call|end_function_call|tool_call)>|"(?:structuredContent|jsonrpc)"\s*:/i.test(trimmed)) return fallback;
+  return trimmed;
+}
+
+function setProgress(activeIndex, completed = false) {
+  progressSteps.forEach((step, index) => {
+    step.classList.toggle('done', completed || index < activeIndex);
+    step.classList.toggle('active', !completed && index === activeIndex);
+  });
+}
+
+function blurInput() {
+  promptInput.blur();
+}
+
+function openMenu() {
+  blurInput();
+  if (!appMenu.open) appMenu.showModal();
+}
+
+try {
+  const savedPreference = window.localStorage.getItem('tentetsu.prefersMap');
+  if (savedPreference !== null) prefersMap.checked = savedPreference === 'true';
+} catch (_) {
+  // Storage can be unavailable in privacy mode; the default remains enabled.
+}
+
+menuButton.addEventListener('click', openMenu);
+document.querySelectorAll('[data-open-menu]').forEach((button) => button.addEventListener('click', openMenu));
+closeMenu.addEventListener('click', () => appMenu.close());
+appMenu.addEventListener('click', (event) => {
+  if (event.target === appMenu) appMenu.close();
+});
+prefersMap.addEventListener('change', () => {
+  try {
+    window.localStorage.setItem('tentetsu.prefersMap', String(prefersMap.checked));
+  } catch (_) {
+    // The setting still applies for the current page.
+  }
+  if (!prefersMap.checked) {
+    teardownMap();
+  } else if (lastMapResult) {
+    renderRouteMap(lastMapResult);
+  }
+});
+dismissKeyboard.addEventListener('click', blurInput);
 
 async function checkHealth() {
   try {
     const response = await fetch('api/health', { cache: 'no-store' });
     if (!response.ok) throw new Error('health check failed');
+    const health = await response.json();
     serviceState.className = 'service-state ready';
-    serviceState.querySelector('span:last-child').textContent = '利用できます';
+    serviceState.querySelector('span:last-child').textContent = 'サーバー利用可能';
+    webBackend.textContent = health.inference_backend === 'server' ? 'Webサーバー' : 'サーバー構成';
+    routerRelease.textContent = publicText(health.router_release || health.adapter, '配備構成')
+      .slice(0, 36);
   } catch (_) {
     serviceState.className = 'service-state error';
     serviceState.querySelector('span:last-child').textContent = '接続できません';
@@ -33,7 +128,7 @@ async function checkHealth() {
 document.querySelectorAll('[data-example]').forEach((button) => {
   button.addEventListener('click', () => {
     promptInput.value = button.dataset.example;
-    promptInput.focus();
+    if (!window.matchMedia('(hover: none) and (pointer: coarse)').matches) promptInput.focus();
   });
 });
 
@@ -42,13 +137,15 @@ document.querySelectorAll('[data-example]').forEach((button) => {
 // iframe (allow-scripts only, opaque origin) and talks JSON-RPC over
 // postMessage: ui/initialize -> ui/notifications/initialized -> we push
 // ui/notifications/tool-result, then follow ui/notifications/size-changed.
-function teardownMap() {
+function teardownMap({ forgetResult = false } = {}) {
+  mapRenderGeneration += 1;
   if (activeMapCleanup) {
     activeMapCleanup();
     activeMapCleanup = null;
   }
-  mapContainer.hidden = true;
+  mapSection.hidden = true;
   mapContainer.replaceChildren();
+  if (forgetResult) lastMapResult = null;
 }
 
 async function fetchMapAppHtml() {
@@ -61,11 +158,15 @@ async function fetchMapAppHtml() {
 
 async function renderRouteMap(mapResult) {
   teardownMap();
+  const generation = mapRenderGeneration;
   let html;
   try {
     html = await fetchMapAppHtml();
   } catch (_) {
     return; // Text answer already covers the route; the map is progressive.
+  }
+  if (generation !== mapRenderGeneration || mapResult !== lastMapResult || !prefersMap.checked) {
+    return;
   }
   const frame = document.createElement('iframe');
   frame.className = 'map-frame';
@@ -120,7 +221,7 @@ async function renderRouteMap(mapResult) {
   window.addEventListener('message', onMessage);
   activeMapCleanup = () => window.removeEventListener('message', onMessage);
   mapContainer.append(frame);
-  mapContainer.hidden = false;
+  mapSection.hidden = !prefersMap.checked;
 }
 
 function beginLoading() {
@@ -128,13 +229,11 @@ function beginLoading() {
   loading.hidden = false;
   choices.hidden = true;
   choices.replaceChildren();
-  teardownMap();
+  teardownMap({ forgetResult: true });
   errorBox.hidden = true;
-  tracePanel.hidden = true;
-  tracePanel.open = false;
-  traceOutput.textContent = '';
   elapsed.textContent = '';
   submitButton.disabled = true;
+  setProgress(1);
   resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const started = Date.now();
@@ -161,16 +260,16 @@ async function requestQuery(payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.message || '検索に失敗しました。');
-    answer.textContent = data.answer;
-    elapsed.textContent = `${(data.elapsed_ms / 1000).toFixed(1)} sec`;
-    if (data.trace) {
-      traceOutput.textContent = JSON.stringify(data.trace, null, 2);
-      tracePanel.hidden = false;
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data || !data.ok) {
+      throw new Error(publicText(data && data.message, '検索に失敗しました。時間をおいて再度お試しください。'));
     }
-    if (data.kind === 'map' && data.map_result) {
-      renderRouteMap(data.map_result);
+    answer.textContent = publicText(data.answer, '経路情報を読み取れませんでした。もう一度お試しください。');
+    elapsed.textContent = Number.isFinite(data.elapsed_ms) ? `${(data.elapsed_ms / 1000).toFixed(1)} sec` : '';
+    setProgress(2);
+    if (data.kind === 'map' && data.map_result && !data.map_result.isError) {
+      lastMapResult = data.map_result;
+      if (prefersMap.checked) renderRouteMap(lastMapResult);
     }
     if (data.kind === 'selection') {
       conversationId = data.conversation_id;
@@ -237,15 +336,17 @@ async function requestQuery(payload) {
         conversationId = data.conversation_id;
         promptInput.value = '';
         promptInput.placeholder = data.placeholder || '不足している駅名を入力してください';
-        promptInput.focus();
+        if (!window.matchMedia('(hover: none) and (pointer: coarse)').matches) promptInput.focus();
         window.scrollTo({ top: promptInput.getBoundingClientRect().top + window.scrollY - 90, behavior: 'smooth' });
       } else {
         conversationId = null;
       }
     }
+    setProgress(2, true);
   } catch (error) {
-    errorBox.textContent = error.message || '検索に失敗しました。時間をおいて再度お試しください。';
+    errorBox.textContent = publicText(error && error.message, '検索に失敗しました。時間をおいて再度お試しください。');
     errorBox.hidden = false;
+    setProgress(1);
   } finally {
     endLoading();
   }
@@ -255,6 +356,22 @@ form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const prompt = promptInput.value.trim();
   if (!prompt) return;
+  blurInput();
+  const rejection = rejectionMessage(prompt);
+  if (rejection) {
+    resultPanel.hidden = false;
+    loading.hidden = true;
+    choices.hidden = true;
+    teardownMap({ forgetResult: true });
+    answer.textContent = '';
+    resultTitle.textContent = '入力を確認してください';
+    errorBox.textContent = rejection;
+    errorBox.hidden = false;
+    elapsed.textContent = '';
+    setProgress(0);
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
   answer.textContent = '';
   resultTitle.textContent = '検索結果';
   await requestQuery(conversationId ? { conversation_id: conversationId, prompt } : { prompt });

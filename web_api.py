@@ -33,6 +33,8 @@ ROUTE_MAP_RESOURCE_URI = "ui://transit/route-map"
 UI_RESOURCE_TTL_SECONDS = 3600.0
 RATE_LIMIT_REQUESTS = int(os.getenv("TRANSIT_RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("TRANSIT_RATE_LIMIT_WINDOW", "60"))
+DEFAULT_WEB_ADAPTER = "outputs/tentetsu-270m-v1.0.0"
+CANONICAL_ROUTER_RELEASE = "tentetsu-270m-v1.0.0"
 
 
 class SlidingWindowRateLimiter:
@@ -109,6 +111,15 @@ class AnonymousAuditLogger:
 class BehaviorLogger:
     """Write privacy-filtered pipeline observations for short operational trials."""
 
+    _TIMING_KEYS = {
+        "total_latency_ms",
+        "model_latency_ms",
+        "station_resolve_latency_ms",
+        "mcp_plan_latency_ms",
+        "normalize_latency_ms",
+        "constraint_rerank_latency_ms",
+        "render_latency_ms",
+    }
     _COORDINATES = AnonymousAuditLogger._COORDINATES
     _GEO_ENDPOINT = re.compile(
         r"geo:\s*-?\d{1,2}(?:\.\d+)?\s*,\s*-?\d{2,3}(?:\.\d+)?",
@@ -144,7 +155,7 @@ class BehaviorLogger:
             else save_query
         )
         self.save_answer = (
-            os.getenv("TRANSIT_BEHAVIOR_LOG_ANSWER", "1") == "1"
+            os.getenv("TRANSIT_BEHAVIOR_LOG_ANSWER", "0") == "1"
             if save_answer is None
             else save_answer
         )
@@ -191,6 +202,53 @@ class BehaviorLogger:
         if not isinstance(trace, dict):
             return None
         summary: dict[str, Any] = {}
+        timings = trace.get("timings")
+        if isinstance(timings, dict):
+            metric_timings = {
+                str(key): value
+                for key, value in timings.items()
+                if key in self._TIMING_KEYS
+                and isinstance(value, (int, float))
+                and not isinstance(value, bool)
+            }
+            if metric_timings:
+                summary["timings"] = metric_timings
+        calls: list[dict[str, Any]] = []
+        for call in trace.get("mcp_calls") or []:
+            if not isinstance(call, dict):
+                continue
+            metric_call: dict[str, Any] = {}
+            for key in ("tool", "status"):
+                value = call.get(key)
+                if isinstance(value, str) and re.fullmatch(
+                    r"[a-z][a-z0-9_]{0,63}", value
+                ):
+                    metric_call[key] = value
+            latency = call.get("latency_ms")
+            if (
+                isinstance(latency, (int, float))
+                and not isinstance(latency, bool)
+                and latency >= 0
+            ):
+                metric_call["latency_ms"] = latency
+            attempts = call.get("attempts")
+            if (
+                isinstance(attempts, int)
+                and not isinstance(attempts, bool)
+                and attempts >= 0
+            ):
+                metric_call["attempts"] = attempts
+            if metric_call:
+                calls.append(metric_call)
+        if calls:
+            summary["mcp_calls"] = calls
+        if trace.get("no_call") is not None:
+            summary["no_call"] = bool(trace["no_call"])
+        if trace.get("graphical_defaulted") is not None:
+            summary["graphical_defaulted"] = bool(trace["graphical_defaulted"])
+        if not self.save_query:
+            return summary or None
+
         for key in (
             "router_outputs",
             "planner_steps",
@@ -199,11 +257,10 @@ class BehaviorLogger:
             "route_processing",
             "model_route_intent",
             "effective_route_intent",
-            "timings",
         ):
             if trace.get(key):
                 summary[key] = self._sanitize(trace[key])
-        calls: list[dict[str, Any]] = []
+        calls = []
         for call in trace.get("mcp_calls") or []:
             if not isinstance(call, dict):
                 continue
@@ -218,10 +275,6 @@ class BehaviorLogger:
             )
         if calls:
             summary["mcp_calls"] = calls
-        if trace.get("no_call") is not None:
-            summary["no_call"] = bool(trace["no_call"])
-        if trace.get("graphical_defaulted") is not None:
-            summary["graphical_defaulted"] = bool(trace["graphical_defaulted"])
         if self.save_answer and trace.get("rendered_answer"):
             summary["rendered_answer"] = self._redact_text(
                 str(trace["rendered_answer"])
@@ -345,6 +398,21 @@ class TransitAPI:
         self.sessions: dict[str, dict[str, Any]] = {}
         self.ui_lock = threading.Lock()
         self.ui_resource_cache: dict[str, tuple[float, str]] = {}
+
+    def health(self) -> dict[str, Any]:
+        """Return public runtime identity without exposing filesystem paths."""
+        adapter_id = Path(self.adapter.rstrip("/")).name
+        canonical_id = Path(DEFAULT_WEB_ADAPTER).name
+        return {
+            "ok": True,
+            "model": MODEL_ID,
+            "ready": True,
+            "router_release": (
+                CANONICAL_ROUTER_RELEASE if adapter_id == canonical_id else "custom"
+            ),
+            "inference_backend": "server",
+            "adapter": adapter_id,
+        }
 
     def route_map_html(self) -> str | None:
         """Fetch and cache the MCP Apps route-map resource (text/html;profile=mcp-app)."""
@@ -634,7 +702,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path.rstrip("/") in {"/health", "/api/health"}:
-            self._json(200, {"ok": True, "model": MODEL_ID, "ready": True})
+            self._json(200, self.api.health())
             return
         if self.path.rstrip("/") in {"/ui/route-map", "/api/ui/route-map"}:
             html = self.api.route_map_html()
@@ -762,7 +830,7 @@ def main() -> None:
         "--adapter",
         default=os.getenv(
             "FUNCTIONGEMMA_ADAPTER",
-            "outputs/functiongemma-transit-plus-r4",
+            DEFAULT_WEB_ADAPTER,
         ),
     )
     parser.add_argument("--schema-mode", choices=("baked", "compact", "full"), default="baked")
