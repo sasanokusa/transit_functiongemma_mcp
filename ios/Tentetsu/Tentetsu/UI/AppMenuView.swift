@@ -74,9 +74,7 @@ private struct AboutView: View {
         List {
             Section {
                 VStack(spacing: 10) {
-                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-                        .font(.system(size: 44, weight: .semibold))
-                        .foregroundStyle(.blue)
+                    AppIconImage()
                     Text("転轍").font(.title2.bold())
                     Text("端末内AI × Transit MCP")
                         .foregroundStyle(.secondary)
@@ -105,6 +103,33 @@ private struct AboutView: View {
         }
         .navigationTitle("このアプリについて")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct AppIconImage: View {
+    var body: some View {
+        Group {
+            if let icon = UIImage(named: "Icon-60") {
+                Image(uiImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+            } else {
+                Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(14)
+                    .foregroundStyle(.blue)
+            }
+        }
+        .frame(width: 64, height: 64)
+        .background(.blue.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 0.5)
+        }
+        .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+        .accessibilityHidden(true)
     }
 }
 
