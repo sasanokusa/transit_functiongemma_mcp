@@ -156,6 +156,100 @@ async function fetchMapAppHtml() {
   return mapAppHtml;
 }
 
+function routeEndpointName(endpoint) {
+  if (!endpoint || typeof endpoint !== 'object') return '';
+  const value = typeof endpoint.name === 'string'
+    ? endpoint.name
+    : typeof endpoint.label === 'string' ? endpoint.label : '';
+  return value.normalize('NFKC').trim().replace(/\s+/gu, ' ');
+}
+
+function sameRouteEndpoint(left, right) {
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  const leftId = typeof left.id === 'string' ? left.id.trim() : '';
+  const rightId = typeof right.id === 'string' ? right.id.trim() : '';
+  if (leftId && rightId) return leftId === rightId;
+  const leftName = routeEndpointName(left);
+  const rightName = routeEndpointName(right);
+  return Boolean(leftName && rightName && leftName === rightName);
+}
+
+function routeSeconds(value) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function mapPointForRole(option, role) {
+  const points = option && option.map && Array.isArray(option.map.points)
+    ? option.map.points
+    : [];
+  return points.find((point) => point && point.role === role) || null;
+}
+
+// The MCP map UI owns rendering, but some map responses omit access/egress
+// walks from journey.legs. Add those legs to a detached display copy only;
+// the source result kept by this host remains untouched.
+function routeMapDisplayResult(mapResult) {
+  if (!mapResult || typeof mapResult !== 'object') return mapResult;
+  let displayResult;
+  try {
+    displayResult = typeof structuredClone === 'function'
+      ? structuredClone(mapResult)
+      : JSON.parse(JSON.stringify(mapResult));
+  } catch (_) {
+    return mapResult;
+  }
+  const structured = displayResult.structuredContent;
+  if (!structured || typeof structured !== 'object' || !Array.isArray(structured.options)) {
+    return displayResult;
+  }
+
+  structured.options.forEach((option) => {
+    const journey = option && option.journey;
+    const legs = journey && Array.isArray(journey.legs) ? journey.legs : null;
+    if (!legs || legs.length === 0) return;
+    const first = legs[0];
+    const last = legs[legs.length - 1];
+    if (!first || !last || typeof first !== 'object' || typeof last !== 'object') return;
+
+    const origin = mapPointForRole(option, 'origin') || structured.from;
+    const destination = mapPointForRole(option, 'destination') || structured.to;
+    const journeyDeparture = routeSeconds(journey.departureSecs);
+    const firstDeparture = routeSeconds(first.departureSecs);
+    const lastArrival = routeSeconds(last.arrivalSecs);
+    const journeyArrival = routeSeconds(journey.arrivalSecs);
+
+    if (origin && first.from && !sameRouteEndpoint(origin, first.from)
+        && journeyDeparture !== null && firstDeparture !== null
+        && firstDeparture > journeyDeparture) {
+      legs.unshift({
+        kind: 'walk',
+        from: origin,
+        to: first.from,
+        departureSecs: journeyDeparture,
+        arrivalSecs: firstDeparture,
+        durationSecs: firstDeparture - journeyDeparture,
+      });
+    }
+    if (destination && last.to && !sameRouteEndpoint(last.to, destination)
+        && lastArrival !== null && journeyArrival !== null
+        && journeyArrival > lastArrival) {
+      legs.push({
+        kind: 'walk',
+        from: last.to,
+        to: destination,
+        departureSecs: lastArrival,
+        arrivalSecs: journeyArrival,
+        durationSecs: journeyArrival - lastArrival,
+      });
+    }
+  });
+  return displayResult;
+}
+
 async function renderRouteMap(mapResult) {
   teardownMap();
   const generation = mapRenderGeneration;
@@ -168,6 +262,7 @@ async function renderRouteMap(mapResult) {
   if (generation !== mapRenderGeneration || mapResult !== lastMapResult || !prefersMap.checked) {
     return;
   }
+  const displayResult = routeMapDisplayResult(mapResult);
   const frame = document.createElement('iframe');
   frame.className = 'map-frame';
   frame.setAttribute('sandbox', 'allow-scripts');
@@ -199,7 +294,7 @@ async function renderRouteMap(mapResult) {
       post({
         jsonrpc: '2.0',
         method: 'ui/notifications/tool-result',
-        params: mapResult,
+        params: displayResult,
       });
       return;
     }
