@@ -11,6 +11,16 @@ GGUF_DIR="${GGUF_DIR:-$HOME/transit_work/gguf}"
 RUN="${RUN:-$ROOT/outputs/functiongemma-transit-rc11}"
 OUT="${OUT:-$ROOT/artifacts/rc11_release_eval}"
 BASE_SNAPSHOT="${BASE_SNAPSHOT:-$HF_HOME/hub/models--google--functiongemma-270m-it/snapshots/39eccb091651513a5dfb56892d3714c1b5b8276c}"
+V1_Q6="${V1_Q6:-$GGUF_DIR/v100_Q6_K.gguf}"
+V1_TOKENIZER="${V1_TOKENIZER:-$GGUF_DIR/merged_v100}"
+RESUME="${RESUME:-0}"
+PROVENANCE_ONLY="${PROVENANCE_ONLY:-0}"
+RUNNER_SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/$(basename -- "${BASH_SOURCE[0]}")"
+
+case "$RESUME" in
+  0|1) ;;
+  *) echo "RESUME must be 0 or 1" >&2; exit 2 ;;
+esac
 
 source "$VENV/bin/activate"
 export HF_HOME HF_HUB_OFFLINE=1
@@ -24,6 +34,210 @@ datasets=(
   "manual100:data/eval/manual_practical_100.jsonl:data/eval/mixed_dev_schema.json"
   "route300:data/eval/operational_semantic_holdout_300_eval.jsonl:tools/local_tools_schema.json"
 )
+
+# An evaluation directory is safe to resume only when every source that can
+# change its meaning is byte-identical.  These are full content hashes on
+# purpose: model_hashes.sha256 is produced only after conversion and therefore
+# cannot prove the identity of adapters/base/v1 inputs at run start.  The extra
+# I/O is preferable to mixing results from different releases in one OUT.
+PROVENANCE_CANDIDATE="$OUT/.provenance.candidate.$$"
+cleanup_provenance_candidate() {
+  rm -f "$PROVENANCE_CANDIDATE"
+}
+trap cleanup_provenance_candidate EXIT
+
+python - "$PROVENANCE_CANDIDATE" \
+  "$RUNNER_SOURCE" \
+  "evaluation/eval_toolcall.py" \
+  "scripts/generate_gguf_predictions.py" \
+  "transit_functiongemma" \
+  "data/eval/mixed_dev_selection.jsonl" \
+  "data/eval/independent_holdout_300.jsonl" \
+  "data/eval/manual_practical_100.jsonl" \
+  "data/eval/operational_semantic_holdout_300_eval.jsonl" \
+  "data/eval/mixed_dev_schema.json" \
+  "data/tool_schema.json" \
+  "tools/local_tools_schema.json" \
+  "$BASE_SNAPSHOT" \
+  "$RUN/epoch-1" \
+  "$RUN/epoch-2" \
+  "$RUN/epoch-3" \
+  "$V1_Q6" \
+  "$V1_TOKENIZER" \
+  "$LLAMA_ROOT/convert_hf_to_gguf.py" \
+  "$LLAMA_SERVER" \
+  "$LLAMA_QUANTIZE" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from pathlib import Path
+
+output = Path(sys.argv[1])
+labels = (
+    "evaluation_runner",
+    "evaluator",
+    "gguf_prediction_generator",
+    "evaluation_runtime_sources",
+    "dataset_mixeddev",
+    "dataset_independent300",
+    "dataset_manual100",
+    "dataset_route300",
+    "schema_mixeddev_manual100",
+    "schema_independent300",
+    "schema_route300",
+    "base_model",
+    "adapter_epoch_1",
+    "adapter_epoch_2",
+    "adapter_epoch_3",
+    "v1_q6_model",
+    "v1_tokenizer",
+    "hf_to_gguf_converter",
+    "llama_server",
+    "llama_quantize",
+)
+paths = [Path(value).expanduser().resolve() for value in sys.argv[2:]]
+if len(paths) != len(labels):
+    raise SystemExit(f"internal error: expected {len(labels)} provenance inputs, got {len(paths)}")
+
+
+def file_hash(path):
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+            size += len(chunk)
+    return digest.hexdigest(), size
+
+
+def fingerprint(path):
+    if not path.exists():
+        raise SystemExit(f"provenance input does not exist: {path}")
+    if path.is_file():
+        sha256, size = file_hash(path)
+        return {"kind": "file", "sha256": sha256, "bytes": size}
+    if not path.is_dir():
+        raise SystemExit(f"unsupported provenance input type: {path}")
+
+    digest = hashlib.sha256()
+    digest.update(b"tree-sha256-v1\0")
+    file_count = 0
+    byte_count = 0
+    for child in sorted(path.rglob("*"), key=lambda value: value.relative_to(path).as_posix()):
+        if child.is_dir():
+            continue
+        if not child.is_file():
+            raise SystemExit(f"unsupported item in provenance tree: {child}")
+        relative = child.relative_to(path).as_posix().encode("utf-8")
+        sha256, size = file_hash(child)
+        digest.update(relative)
+        digest.update(b"\0")
+        digest.update(sha256.encode("ascii"))
+        digest.update(b"\0")
+        digest.update(str(size).encode("ascii"))
+        digest.update(b"\0")
+        file_count += 1
+        byte_count += size
+    return {
+        "kind": "directory",
+        "tree_sha256": digest.hexdigest(),
+        "files": file_count,
+        "bytes": byte_count,
+    }
+
+
+def python_source_tree_fingerprint(path):
+    if not path.is_dir():
+        raise SystemExit(f"Python source tree does not exist: {path}")
+
+    digest = hashlib.sha256()
+    digest.update(b"python-source-tree-sha256-v1\0")
+    file_count = 0
+    byte_count = 0
+    for child in sorted(path.rglob("*.py"), key=lambda value: value.relative_to(path).as_posix()):
+        if not child.is_file():
+            raise SystemExit(f"unsupported item in Python source tree: {child}")
+        relative = child.relative_to(path).as_posix().encode("utf-8")
+        sha256, size = file_hash(child)
+        digest.update(relative)
+        digest.update(b"\0")
+        digest.update(sha256.encode("ascii"))
+        digest.update(b"\0")
+        digest.update(str(size).encode("ascii"))
+        digest.update(b"\0")
+        file_count += 1
+        byte_count += size
+    if not file_count:
+        raise SystemExit(f"Python source tree is empty: {path}")
+    return {
+        "kind": "python_source_tree",
+        "tree_sha256": digest.hexdigest(),
+        "files": file_count,
+        "bytes": byte_count,
+    }
+
+
+manifest = {
+    "format_version": 1,
+    "hash_policy": "full-content-sha256",
+    "inputs": [
+        {
+            "name": label,
+            "path": os.fspath(path),
+            "fingerprint": (
+                python_source_tree_fingerprint(path)
+                if label == "evaluation_runtime_sources"
+                else fingerprint(path)
+            ),
+        }
+        for label, path in zip(labels, paths)
+    ],
+}
+output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+PY
+
+PROVENANCE="$OUT/provenance.json"
+if [[ "$RESUME" == 1 ]]; then
+  if [[ ! -s "$PROVENANCE" ]]; then
+    echo "refusing resume: $PROVENANCE is missing" >&2
+    exit 1
+  fi
+  if ! cmp -s "$PROVENANCE" "$PROVENANCE_CANDIDATE"; then
+    python - "$PROVENANCE" "$PROVENANCE_CANDIDATE" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+old = json.loads(Path(sys.argv[1]).read_text())
+new = json.loads(Path(sys.argv[2]).read_text())
+old_inputs = {item["name"]: item for item in old.get("inputs", [])}
+new_inputs = {item["name"]: item for item in new.get("inputs", [])}
+changed = [name for name in sorted(old_inputs.keys() | new_inputs.keys()) if old_inputs.get(name) != new_inputs.get(name)]
+print("refusing resume: provenance mismatch", file=sys.stderr)
+for name in changed:
+    print(f"  changed: {name}", file=sys.stderr)
+if not changed:
+    print("  manifest metadata or format changed", file=sys.stderr)
+PY
+    exit 1
+  fi
+  rm -f "$PROVENANCE_CANDIDATE"
+else
+  existing="$(find "$OUT" -mindepth 1 -maxdepth 1 ! -name "$(basename "$PROVENANCE_CANDIDATE")" -print -quit)"
+  if [[ -n "$existing" ]]; then
+    echo "refusing fresh run: OUT is not empty ($existing)" >&2
+    echo "use a new OUT, empty it explicitly, or set RESUME=1 to resume matching inputs" >&2
+    exit 1
+  fi
+  mv "$PROVENANCE_CANDIDATE" "$PROVENANCE"
+fi
+PROVENANCE_CANDIDATE=""
+
+if [[ "$PROVENANCE_ONLY" == 1 ]]; then
+  echo "provenance verified: $PROVENANCE"
+  exit 0
+fi
 
 evaluate_predictions() {
   local name="$1" dataset="$2" schema="$3" predictions="$4" prefix="$5"
@@ -84,6 +298,19 @@ MERGED="$GGUF_DIR/merged_rc11_${BEST}"
 F16="$GGUF_DIR/rc11_${BEST}_f16.gguf"
 Q6="$GGUF_DIR/rc11_${BEST}_Q6_K.gguf"
 Q8="$GGUF_DIR/rc11_${BEST}_Q8_0.gguf"
+
+if [[ "$RESUME" == 0 ]]; then
+  rm -f "$F16" "$Q6" "$Q8"
+elif [[ -e "$F16" || -e "$Q6" || -e "$Q8" ]]; then
+  if [[ ! -s "$OUT/model_hashes.sha256" ]]; then
+    echo "refusing derived-model reuse: $OUT/model_hashes.sha256 is missing" >&2
+    exit 1
+  fi
+  if ! sha256sum --check --status "$OUT/model_hashes.sha256"; then
+    echo "refusing derived-model reuse: model_hashes.sha256 verification failed" >&2
+    exit 1
+  fi
+fi
 
 echo "[2/6] merge $BEST $(date --iso-8601=seconds)"
 rm -rf "$MERGED"
@@ -162,15 +389,10 @@ for quant in q6 q8; do
 done
 
 echo "[4/6] v1.0.0 Q6_K on current evaluator $(date --iso-8601=seconds)"
-V1_Q6="$GGUF_DIR/v100_Q6_K.gguf"
-V1_TOKENIZER="$GGUF_DIR/merged_v100"
 for spec in "${datasets[@]}"; do
   IFS=: read -r name dataset schema <<<"$spec"
   predictions="$OUT/v100_q6_${name}_predictions.jsonl"
-  existing="$ROOT/../repo/artifacts/preds_${name}_v100q6k.jsonl"
-  if [[ -s "$existing" ]]; then
-    cp "$existing" "$predictions"
-  else
+  if [[ ! -s "$predictions" ]]; then
     python scripts/generate_gguf_predictions.py \
       --dataset "$dataset" --gguf "$V1_Q6" --tokenizer "$V1_TOKENIZER" \
       --llama-server "$LLAMA_SERVER" --output "$predictions"

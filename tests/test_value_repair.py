@@ -151,6 +151,27 @@ class RelativeDateRepairTest(unittest.TestCase):
 
 
 class TimePaddingTest(unittest.TestCase):
+    def test_python_ios_time_parity_fixture(self):
+        # Mirrors JapaneseRuntimeCompatibility.verifyFixtures in LlamaState.swift.
+        fixtures = {
+            "夜9時": "21:00",
+            "午後9時": "21:00",
+            "朝9時": "09:00",
+            "午前12時": "00:00",
+            "午後12時": "12:00",
+            "午後3時半": "15:30",
+            "夜中1時": "01:00",
+            "深夜1時": "01:00",
+        }
+        for text, expected in fixtures.items():
+            with self.subTest(text=text):
+                repaired = repair_tool_call_values(
+                    ToolCall("resolve_route_request", {"time": "model-value"}),
+                    f"東京から新宿まで{text}に出たい",
+                    REFERENCE,
+                )
+                self.assertEqual(repaired.arguments["time"], expected)
+
     def test_single_digit_hour_is_padded(self):
         call = ToolCall(
             "station_departures", {"id": "demo-feed:shinjuku", "time": "8:30"}

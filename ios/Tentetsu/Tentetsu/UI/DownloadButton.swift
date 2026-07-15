@@ -175,61 +175,124 @@ actor TransitMCPClient {
     private var requestID = 0
     private var sessionID: String?
     private var initialized = false
+    private var initializationAttempt: (id: UUID, task: Task<Void, Error>)?
 
     func callTool(name: String, arguments: [String: JSONValue]) async throws -> MCPToolResult {
-        if !initialized {
-            _ = try await request(method: "initialize", params: .object([
-                "protocolVersion": .string("2025-03-26"),
-                "capabilities": .object([:]),
-                "clientInfo": .object(["name": .string("tentetsu-ios"), "version": .string("0.1.0")])
-            ]))
-            try await notify(method: "notifications/initialized", params: .object([:]))
-            initialized = true
-        }
-        let envelope = try await request(method: "tools/call", params: .object([
+        try await ensureInitialized()
+        let (envelope, _) = try await request(method: "tools/call", params: .object([
             "name": .string(name), "arguments": .object(arguments)
-        ]))
-        let contents = envelope["result"]?.object?["content"]?.array ?? []
+        ]), sessionID: sessionID)
+        let toolResult = try Self.validatedToolResult(in: envelope)
+        let contents = toolResult["content"]?.array ?? []
         let text = contents.compactMap { item -> String? in
             guard let object = item.object, object["type"]?.string == "text" else { return nil }
             return object["text"]?.string
         }.joined(separator: "\n")
-        let structured = envelope["result"]?.object?["structuredContent"]
+        let structured = toolResult["structuredContent"]
         let decoded = structured ?? text.data(using: .utf8).flatMap {
             try? JSONDecoder().decode(JSONValue.self, from: $0)
         }
         return MCPToolResult(envelope: envelope, text: text, decodedText: decoded)
     }
 
-    private func notify(method: String, params: JSONValue) async throws {
+    /// Coalesces concurrent first-use calls into one MCP handshake. Actor
+    /// methods can interleave at suspension points, so an `initialized` flag
+    /// alone does not prevent two initialize requests from racing.
+    private func ensureInitialized() async throws {
+        if initialized { return }
+        if let attempt = initializationAttempt {
+            try await finishInitializationAttempt(attempt)
+            return
+        }
+
+        let id = UUID()
+        let task = Task { try await self.performInitialization() }
+        initializationAttempt = (id, task)
+        try await finishInitializationAttempt((id, task))
+    }
+
+    private func finishInitializationAttempt(
+        _ attempt: (id: UUID, task: Task<Void, Error>)
+    ) async throws {
+        do {
+            try await attempt.task.value
+            if initializationAttempt?.id == attempt.id { initializationAttempt = nil }
+        } catch {
+            // Do not retain a failed task. The next tool call may retry with a
+            // fresh initialize request and no partially committed session.
+            if initializationAttempt?.id == attempt.id { initializationAttempt = nil }
+            throw error
+        }
+    }
+
+    private func performInitialization() async throws {
+        let (_, proposedSessionID) = try await request(
+            method: "initialize",
+            params: .object([
+                "protocolVersion": .string("2025-03-26"),
+                "capabilities": .object([:]),
+                "clientInfo": .object([
+                    "name": .string("tentetsu-ios"), "version": .string("0.1.0")
+                ])
+            ]),
+            sessionID: nil
+        )
+        try await notify(
+            method: "notifications/initialized", params: .object([:]),
+            sessionID: proposedSessionID
+        )
+        // Commit session state only after the complete handshake succeeds.
+        sessionID = proposedSessionID
+        initialized = true
+    }
+
+    /// Validates the MCP tool-result layer before any content is exposed to
+    /// callers. Tool failures are returned inside otherwise-successful JSON-RPC
+    /// responses, so HTTP status alone is not sufficient.
+    static func validatedToolResult(
+        in envelope: [String: JSONValue]
+    ) throws -> [String: JSONValue] {
+        guard let result = envelope["result"]?.object else {
+            throw URLError(.cannotParseResponse)
+        }
+        guard result["isError"]?.bool != true else {
+            // Keep server-provided error text out of the UI. URLError is the
+            // existing typed error path mapped to the Transit MCP user message.
+            throw URLError(.badServerResponse)
+        }
+        return result
+    }
+
+    private func notify(method: String, params: JSONValue, sessionID: String?) async throws {
         let payload: JSONValue = .object([
             "jsonrpc": .string("2.0"), "method": .string(method), "params": params
         ])
-        var request = configuredRequest()
+        var request = configuredRequest(sessionID: sessionID)
         request.httpBody = try JSONEncoder().encode(payload)
         debugLog("MCP -> \(method)")
         let (_, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
-        if let value = http.value(forHTTPHeaderField: "mcp-session-id") { sessionID = value }
         debugLog("MCP <- \(method) HTTP \(http.statusCode)")
     }
 
-    private func request(method: String, params: JSONValue) async throws -> [String: JSONValue] {
+    private func request(
+        method: String, params: JSONValue, sessionID: String?
+    ) async throws -> ([String: JSONValue], String?) {
         requestID += 1
         let payload: JSONValue = .object([
             "jsonrpc": .string("2.0"), "id": .number(Double(requestID)),
             "method": .string(method), "params": params
         ])
-        var request = configuredRequest()
+        var request = configuredRequest(sessionID: sessionID)
         request.httpBody = try JSONEncoder().encode(payload)
         debugLog("MCP -> \(method)")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
-        if let value = http.value(forHTTPHeaderField: "mcp-session-id") { sessionID = value }
+        let responseSessionID = http.value(forHTTPHeaderField: "mcp-session-id")
         debugLog("MCP <- \(method) HTTP \(http.statusCode)")
         let contentType = http.value(forHTTPHeaderField: "content-type") ?? ""
         let jsonData: Data
@@ -242,10 +305,10 @@ actor TransitMCPClient {
         guard case .object(let result) = try JSONDecoder().decode(JSONValue.self, from: jsonData), result["error"] == nil else {
             throw URLError(.cannotParseResponse)
         }
-        return result
+        return (result, responseSessionID)
     }
 
-    private func configuredRequest() -> URLRequest {
+    private func configuredRequest(sessionID: String?) -> URLRequest {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 60

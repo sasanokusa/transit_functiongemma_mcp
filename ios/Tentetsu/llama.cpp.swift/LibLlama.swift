@@ -169,7 +169,9 @@ actor LlamaContext {
         new_token_id = llama_sampler_sample(sampling, context, batch.n_tokens - 1)
 
         if llama_vocab_is_eog(vocab, new_token_id) || n_cur == n_len {
+#if DEBUG
             print("\n")
+#endif
             is_done = true
             let new_token_str = String(cString: temporary_invalid_cchars + [0])
             temporary_invalid_cchars.removeAll()
@@ -190,7 +192,9 @@ actor LlamaContext {
         } else {
             new_token_str = ""
         }
+#if DEBUG
         print(new_token_str)
+#endif
         // tokens_list.append(new_token_id)
 
         llama_batch_clear(&batch)

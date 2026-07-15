@@ -1,9 +1,12 @@
 import unittest
 
-from transit_functiongemma.route_intent import extract_route_intent
+from transit_functiongemma.route_intent import extract_route_intent, normalize_time
 
 
 class RouteIntentTest(unittest.TestCase):
+    def test_night_clock_is_normalized_as_pm(self) -> None:
+        self.assertEqual(normalize_time("夜9時"), "21:00")
+
     def test_operational_100_surface_variants(self) -> None:
         afternoon = extract_route_intent("品川から上野まで午後3時着で")
         self.assertEqual(afternoon["time"], "15:00")

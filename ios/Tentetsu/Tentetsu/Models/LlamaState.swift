@@ -27,6 +27,7 @@ final class AppModel: ObservableObject {
 #if DEBUG
         JapaneseRuntimeCompatibility.verifyFixtures()
         TransitInputPolicy.verifyFixtures()
+        RouteIntentGrounding.verifyFixtures()
 #endif
         Task {
             await loadModel()
@@ -206,6 +207,9 @@ final class AppModel: ObservableObject {
     private func executeRoute(
         intent: [String: JSONValue], userText: String, searchID: UUID
     ) async throws -> String {
+        let intent = RouteIntentGrounding.sanitize(
+            intent, userText: userText, referenceDate: Date()
+        )
         guard let origin = intent["origin_text"]?.string,
               let destination = intent["destination_text"]?.string else {
             return "出発地と目的地が不足しています。どこからどこまで行きますか？"
@@ -225,14 +229,14 @@ final class AppModel: ObservableObject {
             arguments["via"] = .array(resolved.dropFirst().dropLast().map { .string($0.endpoint) })
             arguments["viaLabel"] = .array(resolved.dropFirst().dropLast().map { .string($0.name) })
         }
-        if let date = normalizedDate(from: userText) ?? intent["date"]?.string { arguments["date"] = .string(date) }
-        if let time = normalizedTime(from: userText) ?? intent["time"]?.string { arguments["time"] = .string(time) }
+        if let date = intent["date"]?.string { arguments["date"] = .string(date) }
+        if let time = intent["time"]?.string { arguments["time"] = .string(time) }
         if let mode = intent["time_mode"]?.string {
             let type = ["last_train": "last", "first_train": "first", "arrive_by": "arrival", "departure_at": "departure"][mode]
             if let type { arguments["type"] = .string(type) }
         }
         let priority = intent["priority"]?.string
-        let constrained = priority != nil || !(intent["avoid_station_texts"]?.array ?? []).isEmpty
+        let constrained = priority != nil || !viaNames.isEmpty
         arguments["numItineraries"] = .number(constrained ? 6 : 1)
         let graphical = prefersMap || intent["graphical"] == .bool(true)
         guard graphical else {
@@ -393,13 +397,6 @@ final class AppModel: ObservableObject {
             .replacingOccurrences(of: #"[\s駅]"#, with: "", options: .regularExpression)
     }
 
-    private func normalizedDate(from text: String) -> String? {
-        JapaneseRuntimeCompatibility.normalizedDate(from: text, referenceDate: Date())
-    }
-
-    private func normalizedTime(from text: String) -> String? {
-        JapaneseRuntimeCompatibility.normalizedTime(from: text)
-    }
 }
 
 private enum RouteSearchError: Error {
@@ -410,25 +407,253 @@ private enum RouteSearchError: Error {
 /// Unsupported scripts are rejected before inference; ambiguous supported input
 /// is handled by deterministic clarification messages after inference.
 private enum TransitInputPolicy {
+    private static let languageRejection =
+        "現在は日本語の乗換案内に対応しています。\n「〇〇駅から〇〇駅」のように、出発地と目的地を日本語で入力してください。"
+    private static let constraintRejection =
+        "現在のデモ版では、駅・路線・交通機関の除外や指定条件にはまだ対応していません。\n条件を外して、出発地と目的地を入力してください。"
+    private static let japaneseScript = try! NSRegularExpression(
+        pattern: #"^[\p{Han}\p{Hiragana}\p{Katakana}]$"#
+    )
+    private static let latinScript = try! NSRegularExpression(pattern: #"^\p{Latin}$"#)
+    private static let unsupportedConstraintPatterns = [
+        #"[^、,。\s]+?(?:駅)?(?:だけ)?(?:は|を)?(?:避け(?:て|たい|る)|通りたくない|通らない|通らず|除外(?:して|する)?|除いて|外して)"#,
+        #"[^、,。\s]+?(?:駅)?(?:を)?経由(?:(?:は|が)?嫌|しない|したくない|したくありません)"#,
+        #"(?:[\p{L}\p{N}・ー]+線|JR|地下鉄|東京メトロ|都営地下鉄|バス|電車|鉄道|列車|新幹線|飛行機|航空|フェリー|船|モノレール|路面電車|タクシー|徒歩)\s*で"#,
+        #"(?:[\p{L}\p{N}・ー]+線|JR|地下鉄|東京メトロ|都営地下鉄|バス|電車|鉄道|列車|新幹線|飛行機|航空|フェリー|船|モノレール|路面電車|タクシー|徒歩)(?:は|を)?(?:使わない|使いたくない|使わず|避け(?:て|たい)?|嫌|なし|以外|だけ|のみ|限定|指定)"#,
+        #"(?:[\p{L}\p{N}・ー]+線|JR|地下鉄|東京メトロ|都営地下鉄|バス|電車|鉄道|列車|新幹線|飛行機|航空|フェリー|船|モノレール|路面電車|タクシー)(?:を|で|が)?(?:使って|使いたい|利用して|利用したい|乗って|乗りたい|行って|行きたい|経由|優先|希望|指定|いい)"#,
+        #"[^、,。\s]+?(?:駅)?(?:は|が)(?:嫌|いや)"#,
+        #"[^、,。\s]+?(?:駅)?(?:なし|以外)(?:で)?"#
+    ]
+
     static func rejectionMessage(for text: String) -> String? {
-        guard text.unicodeScalars.contains(where: isUnsupportedScript) else { return nil }
-        return "現在は日本語の乗換案内に対応しています。\n「〇〇駅から〇〇駅」のように、出発地と目的地を日本語で入力してください。"
+        let value = JapaneseRuntimeCompatibility.normalizeSurface(text)
+        var hasJapanese = false
+        var hasLatin = false
+        for scalar in value.unicodeScalars where CharacterSet.letters.contains(scalar) {
+            if scalar.value == 0x30FC || scalar.value == 0xFF70 {
+                continue // Japanese prolonged sound marks use the Common script.
+            }
+            let character = String(scalar)
+            if matches(japaneseScript, character) {
+                hasJapanese = true
+            } else if matches(latinScript, character) {
+                hasLatin = true
+            } else {
+                return languageRejection
+            }
+        }
+        if hasLatin && !hasJapanese { return languageRejection }
+        if unsupportedConstraintPatterns.contains(where: { matches($0, value) }) {
+            return constraintRejection
+        }
+        return nil
     }
 
-    private static func isUnsupportedScript(_ scalar: Unicode.Scalar) -> Bool {
-        switch scalar.value {
-        case 0x0400...0x052F, 0x1C80...0x1C8F, 0x2DE0...0x2DFF, 0xA640...0xA69F:
-            return true // Cyrillic and its extensions.
-        default:
-            return false
-        }
+    private static func matches(_ regex: NSRegularExpression, _ text: String) -> Bool {
+        regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    private static func matches(_ pattern: String, _ text: String) -> Bool {
+        text.range(of: pattern, options: .regularExpression) != nil
     }
 
 #if DEBUG
     static func verifyFixtures() {
         assert(rejectionMessage(for: "Какой у тебя") != nil)
+        assert(rejectionMessage(for: "東京からدبيまで") != nil)
+        assert(rejectionMessage(for: "서울から東京まで") != nil)
+        assert(rejectionMessage(for: "Αθήναから東京まで") != nil)
+        assert(rejectionMessage(for: "ירושליםから東京まで") != nil)
+        assert(rejectionMessage(for: "How are you") != nil)
         assert(rejectionMessage(for: "〇〇駅から〇〇駅") == nil)
         assert(rejectionMessage(for: "TokyoからShibuya") == nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅") == nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、乗換少なく") == nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、徒歩少なめ") == nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、渋谷を避けて") != nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、渋谷を経由しない") != nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、渋谷経由したくない") != nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、渋谷は嫌") != nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、山手線を使わない") != nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、山手線優先") != nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、地下鉄だけ") != nil)
+        assert(rejectionMessage(for: "東京駅から自由が丘駅、バスなし") != nil)
+        assert(rejectionMessage(for: "新幹線で東京から大阪") != nil)
+        assert(rejectionMessage(for: "バスで東京から羽田") != nil)
+        assert(rejectionMessage(for: "地下鉄で東京から浅草") != nil)
+        assert(rejectionMessage(for: "船で横浜から伊豆大島") != nil)
+        assert(rejectionMessage(for: "横浜から伊豆大島まで船だけ") != nil)
+        assert(rejectionMessage(for: "列車で東京から大阪") != nil)
+        assert(rejectionMessage(for: "東京から大阪まで列車だけ") != nil)
+        assert(rejectionMessage(for: "モノレールで浜松町から羽田空港") != nil)
+        assert(rejectionMessage(for: "東京から羽田までタクシーだけ") != nil)
+        assert(rejectionMessage(for: "東京駅からバス停まで") == nil)
+        assert(rejectionMessage(for: "船橋駅から東京駅") == nil)
+        assert(rejectionMessage(for: "列車番号を教えて") == nil)
+        assert(rejectionMessage(for: "タクシー乗り場から東京駅") == nil)
+    }
+#endif
+}
+
+/// Rebuild model-proposed optional route slots from facts that are explicit in
+/// the current user utterance. Unsupported constraint families are rejected by
+/// TransitInputPolicy before inference; hallucinated constraint arrays never
+/// cross this boundary.
+private enum RouteIntentGrounding {
+    static func sanitize(
+        _ proposed: [String: JSONValue], userText: String, referenceDate: Date
+    ) -> [String: JSONValue] {
+        var grounded: [String: JSONValue] = [:]
+        for key in ["origin_text", "destination_text"] {
+            if let value = proposed[key]?.string { grounded[key] = .string(value) }
+        }
+
+        let originKey = stationKey(proposed["origin_text"]?.string ?? "")
+        let destinationKey = stationKey(proposed["destination_text"]?.string ?? "")
+        var seenVia: Set<String> = []
+        let via = (proposed["via_station_texts"]?.array ?? []).compactMap(\.string)
+            .filter { candidate in
+                let key = stationKey(candidate)
+                guard !key.isEmpty, key != originKey, key != destinationKey,
+                      !seenVia.contains(key), hasExplicitViaCue(candidate, in: userText) else {
+                    return false
+                }
+                seenVia.insert(key)
+                return true
+            }
+            .prefix(3)
+        grounded["via_station_texts"] = .array(via.map(JSONValue.string))
+
+        if let date = JapaneseRuntimeCompatibility.normalizedDate(
+            from: userText, referenceDate: referenceDate
+        ) {
+            grounded["date"] = .string(date)
+        }
+        if let time = JapaneseRuntimeCompatibility.normalizedTime(from: userText) {
+            grounded["time"] = .string(time)
+        }
+        if let mode = explicitTimeMode(in: userText) {
+            grounded["time_mode"] = .string(mode)
+        }
+        if let priority = explicitPriority(in: userText) {
+            grounded["priority"] = .string(priority)
+        }
+        grounded["graphical"] = .bool(matches(
+            #"地図|マップ|経路図|グラフィカル"#, in: userText
+        ))
+        return grounded
+    }
+
+    private static func explicitTimeMode(in text: String) -> String? {
+        let value = JapaneseRuntimeCompatibility.normalizeSurface(text)
+        if matches(#"始発|朝イチ"#, in: value) { return "first_train" }
+        if matches(#"終電|最終列車|最終電車"#, in: value) { return "last_train" }
+        guard JapaneseRuntimeCompatibility.normalizedTime(from: value) != nil else {
+            return nil
+        }
+        if matches(#"着(?:で|きたい|く|予定)?|到着|までに"#, in: value) {
+            return "arrive_by"
+        }
+        if matches(#"出発|出たい|出る|発(?:で|の|、|,|\s|$)"#, in: value) {
+            return "departure_at"
+        }
+        return nil
+    }
+
+    private static func explicitPriority(in text: String) -> String? {
+        let value = JapaneseRuntimeCompatibility.normalizeSurface(text)
+        if matches(#"最速|早く|早いやつ|早め|なるはや|なるべく早く|速いやつ"#, in: value) {
+            return "fast"
+        }
+        if matches(#"最安|安いやつ|安め|安く"#, in: value) { return "cheap" }
+        if matches(#"乗(?:り)?換(?:え)?(?:が)?少|乗換あんましない"#, in: value) {
+            return "few_transfers"
+        }
+        if matches(#"歩き少な|徒歩少な|歩きたくない|歩くのだるい|歩く距離短"#, in: value) {
+            return "less_walk"
+        }
+        return nil
+    }
+
+    private static func hasExplicitViaCue(_ candidate: String, in userText: String) -> Bool {
+        var name = JapaneseRuntimeCompatibility.normalizeSurface(candidate)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.hasSuffix("駅") { name.removeLast() }
+        guard !name.isEmpty else { return false }
+        let escaped = NSRegularExpression.escapedPattern(for: name)
+        return matches(
+            "\(escaped)(?:駅)?\\s*(?:経由(?:で|して)?|を通って|に寄って)",
+            in: JapaneseRuntimeCompatibility.normalizeSurface(userText),
+            caseInsensitive: true
+        )
+    }
+
+    private static func stationKey(_ text: String) -> String {
+        JapaneseRuntimeCompatibility.normalizeSurface(text)
+            .lowercased()
+            .replacingOccurrences(of: #"[\s駅]"#, with: "", options: .regularExpression)
+    }
+
+    private static func matches(
+        _ pattern: String, in text: String, caseInsensitive: Bool = false
+    ) -> Bool {
+        let options: NSRegularExpression.Options = caseInsensitive ? [.caseInsensitive] : []
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else {
+            return false
+        }
+        return regex.firstMatch(
+            in: text, range: NSRange(text.startIndex..., in: text)
+        ) != nil
+    }
+
+#if DEBUG
+    static func verifyFixtures() {
+        let reference = ISO8601DateFormatter().date(from: "2026-07-11T01:00:00Z")!
+        let proposed: [String: JSONValue] = [
+            "origin_text": .string("東京"),
+            "destination_text": .string("自由が丘"),
+            "via_station_texts": .array([.string("渋谷")]),
+            "avoid_station_texts": .array([.string("品川")]),
+            "date": .string("20991231"),
+            "time": .string("03:00"),
+            "time_mode": .string("last_train"),
+            "priority": .string("cheap"),
+            "graphical": .bool(true)
+        ]
+        let plain = sanitize(
+            proposed, userText: "東京駅から自由が丘駅", referenceDate: reference
+        )
+        assert(plain["origin_text"] == .string("東京"))
+        assert(plain["destination_text"] == .string("自由が丘"))
+        assert(plain["via_station_texts"] == .array([]))
+        assert(plain["date"] == nil && plain["time"] == nil)
+        assert(plain["time_mode"] == nil && plain["priority"] == nil)
+        assert(plain["graphical"] == .bool(false))
+        assert(plain["avoid_station_texts"] == nil)
+
+        let explicit = sanitize(
+            proposed,
+            userText: "明日、東京駅から自由が丘駅まで渋谷駅経由で、夜9時に出発、乗換少なく地図で",
+            referenceDate: reference
+        )
+        assert(explicit["via_station_texts"] == .array([.string("渋谷")]))
+        assert(explicit["date"] == .string("20260712"))
+        assert(explicit["time"] == .string("21:00"))
+        assert(explicit["time_mode"] == .string("departure_at"))
+        assert(explicit["priority"] == .string("few_transfers"))
+        assert(explicit["graphical"] == .bool(true))
+        assert(explicitTimeMode(in: "東京から新宿まで始発で") == "first_train")
+        assert(explicitTimeMode(in: "東京から新宿まで午後9時までに") == "arrive_by")
+        let early = sanitize(
+            proposed, userText: "東京から新宿まで早く着きたい", referenceDate: reference
+        )
+        assert(early["priority"] == .string("fast"))
+        assert(early["time_mode"] == nil && early["time"] == nil)
+        let arriveAtNine = sanitize(
+            proposed, userText: "東京から新宿まで9時に着きたい", referenceDate: reference
+        )
+        assert(arriveAtNine["time"] == .string("09:00"))
+        assert(arriveAtNine["time_mode"] == .string("arrive_by"))
     }
 #endif
 }
@@ -812,7 +1037,8 @@ enum JapaneseRuntimeCompatibility {
         let matchStart = Range(match.range, in: value)!.lowerBound
         let prefixStart = value.index(matchStart, offsetBy: -4, limitedBy: value.startIndex) ?? value.startIndex
         let prefix = value[prefixStart..<matchStart]
-        if prefix.contains("午後"), hour < 12 { hour += 12 }
+        let nightClock = prefix.hasSuffix("夜") && !prefix.hasSuffix("深夜")
+        if (prefix.contains("午後") || nightClock), hour < 12 { hour += 12 }
         else if prefix.contains("午前"), hour == 12 { hour = 0 }
         guard hour < 24, minute < 60 else { return nil }
         return String(format: "%02d:%02d", hour, minute)
@@ -866,7 +1092,21 @@ enum JapaneseRuntimeCompatibility {
         assert(normalizeSurface("  東京\u{3000} 駅  ") == "東京 駅")
         assert(normalizedDate(from: "明日の始発", referenceDate: base) == "20260712")
         assert(normalizedDate(from: "8月3日", referenceDate: base) == "20260803")
-        assert(normalizedTime(from: "午後3時半") == "15:30")
+        // Keep this fixture in lockstep with TimePaddingTest's
+        // test_python_ios_time_parity_fixture.
+        let timeFixtures = [
+            ("夜9時", "21:00"),
+            ("午後9時", "21:00"),
+            ("朝9時", "09:00"),
+            ("午前12時", "00:00"),
+            ("午後12時", "12:00"),
+            ("午後3時半", "15:30"),
+            ("夜中1時", "01:00"),
+            ("深夜1時", "01:00")
+        ]
+        for (input, expected) in timeFixtures {
+            assert(normalizedTime(from: input) == expected)
+        }
         let repaired = repair(
             LocalToolCall(name: "get_station", arguments: ["id": .string("wrong:id")]),
             from: "odpt.Station:JR-East.Yamanote.Tokyo を取得", referenceDate: base

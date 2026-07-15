@@ -1,24 +1,28 @@
 # Next release checklist
 
-## Evaluation gates
+## Bundled model evaluation
 
-- [x] `independent_holdout_300`: final parse >= 98% (100%)
-- [x] `independent_holdout_300`: tool name >= 95% (100%)
-- [x] `independent_holdout_300`: expected arguments inclusion >= 90% (100%)
-- [x] `independent_holdout_300`: required arguments >= 95% (100%)
-- [x] `independent_holdout_300`: no-call >= 95% (100%)
-- [x] `independent_holdout_300`: schema valid = 100% (100%)
-- [x] `manual_practical_100`: overall class/tool >= 90% (100%)
-- [x] `manual_practical_100`: no-call >= 95% (100%)
-- [x] `manual_practical_100`: intent slot macro F1 >= 85% (97.84%)
-- [x] `manual_practical_100`: avoid/via extraction >= 85% (100%)
-- [x] `manual_practical_100`: datetime normalization >= 90% (100%)
-- [x] Fixed seven-scenario E2E success >= 90% (7/7, 100%)
-- [x] E2E no-call cases perform zero MCP calls (100%)
-- [x] Renderer source-only checks pass (100%)
+The iPhone bundle contains **Tentetsu v1.0.0 Q6_K**, not the historical r4 adapter. GB10 reran the
+pinned GGUF (`89eeb9d…aaabb`) through the current final-bound evaluator on 2026-07-11. These values
+include deterministic normalization, schema constraint, and argument binding; they are not pure
+model accuracy.
 
-Raw model parse accuracy and schema-constrained final accuracy are reported separately. A release
-must not hide deterioration in the raw metric even when deterministic normalization repairs it.
+| Dataset | Semantic | Tool | Expected args | Parse | No-call | Schema |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| mixed dev | 87.42% | 93.85% | 86.15% | 100.00% | 95.24% | 100.00% |
+| independent 300 | 73.33% | 91.85% | 71.85% | 96.30% | 86.67% | 96.99% |
+| manual 100 | 76.00% | 96.47% | 72.94% | 98.82% | 93.33% | 99.00% |
+| route 300 | 90.00% | 99.33% | 90.00% | 99.33% | n/a | 99.33% |
+
+- [x] Evaluate the exact bundled Q6_K hash on all four current datasets
+- [x] Compare rc11 fp32/Q6/Q8 against the same evaluator and datasets
+- [x] Keep v1.0.0 Q6_K for the controlled iPhone demo: it retains the strongest quantized
+  independent-holdout result and already passed the device route/failure/language smoke tests
+- [x] Scope this decision to a controlled wired demo; unrestricted public release remains unapproved
+
+The former 100% independent/manual and 7/7 E2E figures are 2026-06-29 r4 pipeline results. They
+remain useful historical regression evidence, but they do not certify the bundled model. See
+`docs/RC11_RELEASE_EVALUATION.md` for the like-for-like comparison and evaluator caveats.
 
 ## iPhone demo gates (2026-07-15)
 
@@ -35,8 +39,14 @@ must not hide deterioration in the raw metric even when deterministic normalizat
 - [x] Gemma required notice and llama.cpp MIT license are available in-app
 - [x] Privacy manifest declares no tracking/collection and app-only UserDefaults reason `CA92.1`
 - [x] Bundle the prepared opaque icon at 120×120 and 180×180 for the wired-device demo
+- [x] Release configuration clean build, static analysis, Store bundle validation, and strict code-sign verification pass
+- [x] Signed Release bundle contains v1.0.0 Q6_K with the pinned SHA-256 (`89eeb9d…aaabb`)
+- [x] User visual pass covers the installed icon, menu screens, progressive map placeholder, and final timeline
+- [x] About screen uses the same bundled Tentetsu icon as the installed app
 - [ ] Before App Store distribution, install an iOS Simulator runtime and move the 1024×1024 icon into the AppIcon asset catalog
-- [ ] Re-run a visual pass on the installed icon, progressive map placeholder, and final timeline
+
+The unchecked App Store item does not block the current signed, wired-device demo. It is a
+distribution requirement for a later public release.
 
 Measured Transit MCP latency is currently dominated by server-side planning: `plan_journey`
 roughly 11–30 seconds and `plan_route_map` roughly 15–27 seconds in observed runs. Network setup is below 250 ms
@@ -66,28 +76,12 @@ but server-side p95 work remains a public-release requirement.
 ```bash
 python evaluation/validate_eval_datasets.py
 python scripts/fetch_tools.py --check
-python -m unittest discover -s tests -v
+python -m pytest -q
 
-python evaluation/eval_toolcall.py \
-  --dataset data/eval/independent_holdout_300.jsonl \
-  --run-model --adapter outputs/functiongemma-transit-ja-real-r4 \
-  --normalize-ja --bind-normalized-arguments --schema-constraint \
-  --output artifacts/eval_independent_holdout_300.json \
-  --markdown-output artifacts/eval_independent_holdout_300.md \
-  --failures-output artifacts/failures_independent_holdout_300.jsonl
-
-python evaluation/eval_toolcall.py \
-  --dataset data/eval/manual_practical_100.jsonl \
-  --run-model --adapter outputs/functiongemma-transit-ja-real-r4 \
-  --normalize-ja --bind-normalized-arguments --schema-constraint \
-  --output artifacts/eval_manual_practical_100.json \
-  --markdown-output artifacts/eval_manual_practical_100.md \
-  --failures-output artifacts/failures_manual_practical_100.jsonl
-
-python evaluation/eval_pipeline.py \
-  --adapter outputs/functiongemma-transit-ja-real-r4 \
-  --clarification-tool \
-  --max-routes 1
+# On GB10: evaluates rc11 fp32/Q6/Q8 and the exact v1.0.0 Q6_K together.
+# Use a new OUT directory for every non-resume release run.
+OUT="$HOME/transit_work/eval_runs/$(date +%Y%m%dT%H%M%S)" \
+  bash scripts/run_rc11_release_eval.sh
 ```
 
 ## Release decision

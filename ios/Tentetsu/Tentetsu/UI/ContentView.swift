@@ -176,7 +176,7 @@ private struct RouteResultsView: View {
     let presentation: TransitRoutePresentation
     let isMapLoading: Bool
     let mapLoadMessage: String?
-    @State private var selectedID: String
+    @State private var selectedRank: Int
 
     init(
         presentation: TransitRoutePresentation,
@@ -187,11 +187,11 @@ private struct RouteResultsView: View {
         self.isMapLoading = isMapLoading
         self.mapLoadMessage = mapLoadMessage
         let initial = presentation.options.first(where: \.recommended) ?? presentation.options[0]
-        _selectedID = State(initialValue: initial.id)
+        _selectedRank = State(initialValue: initial.rank)
     }
 
     private var selected: TransitRouteOption {
-        presentation.options.first(where: { $0.id == selectedID }) ?? presentation.options[0]
+        presentation.options.first(where: { $0.rank == selectedRank }) ?? presentation.options[0]
     }
 
     var body: some View {
@@ -212,8 +212,8 @@ private struct RouteResultsView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(presentation.options) { option in
-                        RouteOptionButton(option: option, selected: option.id == selectedID) {
-                            withAnimation(.snappy) { selectedID = option.id }
+                        RouteOptionButton(option: option, selected: option.rank == selected.rank) {
+                            withAnimation(.snappy) { selectedRank = option.rank }
                         }
                     }
                 }
@@ -254,6 +254,14 @@ private struct RouteResultsView: View {
         }
         .padding()
         .background(.background, in: RoundedRectangle(cornerRadius: 18))
+        // plan_journey and plan_route_map use different option IDs. Rank is
+        // stable across that enrichment, so keep the same candidate selected.
+        // If the richer response omits it, normalize once to its first option.
+        .onChange(of: presentation.options.map(\.rank)) { _, availableRanks in
+            if !availableRanks.contains(selectedRank) {
+                selectedRank = presentation.options[0].rank
+            }
+        }
     }
 
     private func displayDate(_ date: String) -> String {
