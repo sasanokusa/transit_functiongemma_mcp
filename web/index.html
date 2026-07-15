@@ -2,38 +2,57 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#13271f">
-  <title>Transit Router — 乗換案内</title>
-  <link rel="stylesheet" href="styles.css?v=20260629-6">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a2232">
+  <meta name="description" content="転轍 — FunctionGemmaとTransit MCPを使った試作乗換案内">
+  <title>転轍 — 乗換案内</title>
+  <link rel="stylesheet" href="styles.css?v=20260715-1">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
   <main class="shell">
     <header class="masthead">
-      <a class="brand" href="./" aria-label="Transit Router ホーム">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>Transit Router</span>
+      <a class="brand" href="./" aria-label="転轍 ホーム">
+        <svg class="brand-icon" viewBox="0 0 180 180" role="img" aria-label="転轍アイコン">
+          <rect width="180" height="180" rx="38" fill="#092232"/>
+          <circle cx="90" cy="91" r="61" fill="#142f42"/>
+          <path d="M34 53c27 18 40 28 40 54v39" fill="none" stroke="#d9f4f7" stroke-width="11" stroke-linecap="round"/>
+          <path d="M134 40c-37 24-60 38-60 67v39" fill="none" stroke="#8fe34e" stroke-width="11" stroke-linecap="round"/>
+          <path d="M146 54c-27 18-40 28-40 54v38" fill="none" stroke="#d9f4f7" stroke-width="11" stroke-linecap="round"/>
+          <path d="M74 106v40" fill="none" stroke="#34bff0" stroke-width="11" stroke-linecap="round"/>
+          <circle cx="74" cy="106" r="17" fill="#092232" stroke="#8fe34e" stroke-width="7"/>
+          <circle cx="74" cy="106" r="4" fill="#d9f4f7"/>
+        </svg>
+        <span><strong>転轍</strong><small>Webデモ</small></span>
       </a>
-      <div class="service-state" id="serviceState">
-        <span class="state-dot" aria-hidden="true"></span>
-        <span>接続確認中</span>
+      <div class="masthead-actions">
+        <div class="service-state" id="serviceState" role="status">
+          <span class="state-dot" aria-hidden="true"></span>
+          <span>接続確認中</span>
+        </div>
+        <button class="menu-button" id="menuButton" type="button" aria-haspopup="dialog" aria-controls="appMenu">
+          <span aria-hidden="true">•••</span><span class="sr-only">メニュー</span>
+        </button>
       </div>
     </header>
 
     <section class="hero">
       <p class="eyebrow">FUNCTIONGEMMA × TRANSIT MCP</p>
       <h1>行き方を、<br><em>ふつうの言葉</em>で。</h1>
-      <p class="lead">駅名や希望の路線を入力してください。経路・時刻・路線情報はTransit MCPから取得します。</p>
+      <p class="lead">日本語で出発地と目的地を入力してください。経路・時刻・路線情報はTransit MCPから取得し、読みやすい案内として表示します。</p>
+      <p class="runtime-note"><strong>Web版はサーバーで推論します。</strong> FunctionGemma v1.0.0 Q6_KをiPhone内で動かすサーバレス版は、現行iPhoneアプリの仕様です。</p>
     </section>
 
     <section class="search-panel" aria-labelledby="searchTitle">
       <h2 id="searchTitle" class="sr-only">乗換案内を検索</h2>
       <form id="searchForm">
         <label for="prompt">どこから、どこまで？</label>
-        <textarea id="prompt" name="prompt" rows="3" maxlength="500" placeholder="例：横浜から上野まで、京浜東北線で行きたい" required></textarea>
+        <textarea id="prompt" name="prompt" rows="3" maxlength="500" placeholder="〇〇駅から〇〇駅" enterkeyhint="search" required></textarea>
+        <div class="input-tools">
+          <button type="button" id="dismissKeyboard">入力を閉じる</button>
+        </div>
         <div class="form-footer">
-          <span class="hint">駅・場所・経由・避けたい駅・利用路線に対応</span>
+          <span class="hint">日時・明示した経由地・速さ・安さ・乗換や徒歩の少なさに対応</span>
           <button type="submit" id="submitButton">
             <span>経路を探す</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
@@ -41,43 +60,106 @@
         </div>
       </form>
       <div class="examples" aria-label="入力例">
-        <button type="button" data-example="横浜から上野までの経路を探して">横浜 → 上野</button>
-        <button type="button" data-example="横浜から上野まで、京浜東北線で行きたい">京浜東北線で</button>
-        <button type="button" data-example="町田から池袋まで、渋谷を避けて">渋谷を避ける</button>
-        <button type="button" data-example="東京タワーを場所として探して">場所を探す</button>
+        <button type="button" data-example="〇〇駅から〇〇駅">〇〇駅 → 〇〇駅</button>
+        <button type="button" data-example="東京駅から自由が丘駅、乗換少なく">乗換を少なく</button>
+        <button type="button" data-example="東京駅から自由が丘駅、明日の朝9時に出発">日時を指定</button>
       </div>
+      <p class="boundary-note">日本語以外の文章や、駅・路線・交通機関の除外／限定は現在未対応です。条件を黙って無視せず、検索前に案内します。</p>
     </section>
 
     <section class="result-panel" id="resultPanel" hidden aria-live="polite">
       <div class="result-header">
         <div>
-          <p class="result-kicker">SEARCH RESULT</p>
+          <p class="result-kicker">ROUTE RESULT</p>
           <h2 id="resultTitle">検索結果</h2>
         </div>
         <span id="elapsed"></span>
       </div>
+      <ol class="progress-steps" id="progressSteps" aria-label="検索の進行状況">
+        <li data-step="input">入力を確認</li>
+        <li data-step="route">経路を取得</li>
+        <li data-step="display">案内を表示</li>
+      </ol>
       <div class="loading" id="loading" hidden>
         <span class="rail-loader" aria-hidden="true"><i></i></span>
         <div><strong>経路を確認しています</strong><small id="loadingTime">駅と路線を照合中…</small></div>
       </div>
-      <pre id="answer"></pre>
-      <div class="map-container" id="mapContainer" hidden></div>
-      <div class="choices" id="choices" hidden aria-label="候補"></div>
-      <details class="trace-panel" id="tracePanel" hidden>
-        <summary>内部処理を見る</summary>
-        <pre id="traceOutput"></pre>
-      </details>
       <p class="error" id="error" hidden></p>
+      <div id="answer" class="answer" role="status"></div>
+      <div class="choices" id="choices" hidden aria-label="候補"></div>
+      <section class="map-section" id="mapSection" hidden aria-labelledby="mapTitle">
+        <div class="map-heading">
+          <div><span>候補切替・タイムライン</span><h3 id="mapTitle">経路と地図</h3></div>
+          <small>Transit MCPの経路表示</small>
+        </div>
+        <div class="map-container" id="mapContainer"></div>
+      </section>
     </section>
 
     <footer>
-      <p>FunctionGemmaはtool routerとしてのみ動作します。回答はMCPの結果からPythonテンプレートで生成され、後段LLMによる補完は行いません。</p>
-      <p class="license-note">
-        交通データは各事業者のGTFS／ODPT等に基づいています。本サービスはTransit APIを利用した非公式サービスであり、正確性・完全性・最新性は保証されません。実際の乗車や重要な判断では、各交通事業者の公式情報をご確認ください。<br>
-        <a href="https://transit.ls8h.com/licenses" target="_blank" rel="noopener noreferrer">出典・ライセンス</a>・<a href="https://transit.ls8h.com/terms" target="_blank" rel="noopener noreferrer">利用規約</a>・<a href="https://api.transit.ls8h.com/api/v1/feeds" target="_blank" rel="noopener noreferrer">フィード別情報</a>・<a href="https://api.transit.ls8h.com/api/v1/operators" target="_blank" rel="noopener noreferrer">事業者別情報</a>
-      </p>
+      <p>AIは検索条件の抽出に使い、経路・時刻などの事実はTransit MCPの応答から表示します。モデル出力やMCPの生JSONは通常画面に表示しません。</p>
+      <p>個人開発中の試作版です。正確性・完全性・最新性は保証されません。重要な移動では交通事業者の公式情報をご確認ください。</p>
+      <button type="button" class="footer-menu" data-open-menu>設定・プライバシー・ライセンス</button>
     </footer>
   </main>
-  <script src="app.js?v=20260629-6" defer></script>
+
+  <dialog class="app-menu" id="appMenu" aria-labelledby="menuTitle">
+    <div class="menu-header">
+      <h2 id="menuTitle">メニュー</h2>
+      <button type="button" id="closeMenu">完了</button>
+    </div>
+    <div class="menu-scroll">
+      <section>
+        <h3>検索設定</h3>
+        <label class="toggle-row" for="prefersMap">
+          <span><strong>地図を表示</strong><small>経路概要を先に表示し、地図を追加します。</small></span>
+          <input type="checkbox" id="prefersMap" checked>
+        </label>
+      </section>
+      <details open>
+        <summary>このWeb版について</summary>
+        <div class="menu-copy about-grid">
+          <span>Web UI</span><strong>v1.0.0</strong>
+          <span>入力理解</span><strong id="webBackend">Webサーバー</strong>
+          <span>配備ルーター</span><strong id="routerRelease">確認中</strong>
+          <span>経路検索</span><strong>Transit MCP</strong>
+        </div>
+        <p class="menu-copy">Web版はiPhone版の画面仕様と安全境界を確認するデモです。端末内推論ではなく、入力文をWeb APIへ送ってサーバー側のFunctionGemmaで処理します。</p>
+        <p class="menu-copy"><strong>現行iPhone版:</strong> FunctionGemma v1.0.0 / Q6_K / iPhone内推論（推論サーバー不使用）。</p>
+      </details>
+      <details>
+        <summary>データの取り扱い</summary>
+        <p class="menu-copy">入力文はWeb APIへ送信され、サーバー側で理解されます。駅名、日時、経由地など経路計算に必要な条件はTransit MCPへ送信されます。運用・障害解析のためサーバーログへ記録される場合があります。</p>
+        <p class="menu-copy">このブラウザーには「地図を表示」の設定だけを保存します。Web版はマイクや現在地の権限を要求しません。</p>
+      </details>
+      <details>
+        <summary>対応範囲</summary>
+        <p class="menu-copy">日本語の出発地・目的地、明示した経由地、日時、始発／終電、到着／出発、速さ・安さ・乗換／徒歩の少なさに対応します。</p>
+        <p class="menu-copy">非日本語の文章、駅や路線の回避、利用路線・交通機関の限定は未対応です。条件を外して入力してください。</p>
+      </details>
+      <details>
+        <summary>交通・地図データの提供元</summary>
+        <div class="menu-links">
+          <a href="https://api.transit.ls8h.com/api/docs" target="_blank" rel="noopener noreferrer">Transit API フィードカタログ</a>
+          <a href="https://api.transit.ls8h.com/mcp" target="_blank" rel="noopener noreferrer">Transit MCP 接続先</a>
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>
+        </div>
+      </details>
+      <details>
+        <summary>ライセンスと利用条件</summary>
+        <p class="menu-copy">FunctionGemmaはGemma Terms of Useの対象です。本プロジェクトによる追加学習はGoogleによる承認・後援を意味しません。</p>
+        <div class="menu-links">
+          <a href="https://ai.google.dev/gemma/terms" target="_blank" rel="noopener noreferrer">Gemma Terms of Use</a>
+          <a href="https://ai.google.dev/gemma/prohibited_use_policy" target="_blank" rel="noopener noreferrer">Gemma Prohibited Use Policy</a>
+          <a href="https://huggingface.co/google/functiongemma-270m-it" target="_blank" rel="noopener noreferrer">FunctionGemma model card</a>
+          <a href="https://transit.ls8h.com/licenses" target="_blank" rel="noopener noreferrer">交通データの出典・ライセンス</a>
+        </div>
+        <p class="notice">Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms</p>
+      </details>
+      <aside class="prototype-note"><strong>試作版</strong><br>経路や時刻は変更される場合があります。移動前に公式情報も確認してください。</aside>
+    </div>
+  </dialog>
+
+  <script src="app.js?v=20260715-1" defer></script>
 </body>
 </html>

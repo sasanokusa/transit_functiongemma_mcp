@@ -8,7 +8,7 @@ WorkingDirectory=/path/to/transit_functiongemma_mcp
 Environment=HF_HOME=/path/to/huggingface
 Environment=HF_HUB_OFFLINE=1
 Environment=XDG_CACHE_HOME=/path/to/cache
-Environment=FUNCTIONGEMMA_ADAPTER=/path/to/transit_functiongemma_mcp/outputs/functiongemma-transit-intent-r7
+Environment=FUNCTIONGEMMA_ADAPTER=/path/to/transit_functiongemma_mcp/outputs/tentetsu-270m-v1.0.0
 Environment=FUNCTIONGEMMA_NORMALIZE_JA=1
 # Prefix KV cache is opt-in and requires both this env var and --prefix-cache.
 # Environment=FUNCTIONGEMMA_PREFIX_CACHE=1
@@ -23,9 +23,10 @@ Environment=TRANSIT_LOG_USER_QUERY=0
 Environment=TRANSIT_LOG_RAW_LOCATION=0
 Environment=TRANSIT_WEB_SHOW_TRACE=0
 Environment=TRANSIT_AUDIT_PATH=/path/to/transit_functiongemma_mcp/artifacts/anonymous_requests.jsonl
-Environment=TRANSIT_BEHAVIOR_LOG=1
-Environment=TRANSIT_BEHAVIOR_LOG_USER_QUERY=1
-Environment=TRANSIT_BEHAVIOR_LOG_ANSWER=1
+# Public-demo default: audit hashes/metrics only; never persist query/answer bodies.
+Environment=TRANSIT_BEHAVIOR_LOG=0
+Environment=TRANSIT_BEHAVIOR_LOG_USER_QUERY=0
+Environment=TRANSIT_BEHAVIOR_LOG_ANSWER=0
 Environment=TRANSIT_BEHAVIOR_LOG_RETENTION_DAYS=45
 Environment=TRANSIT_BEHAVIOR_LOG_DIR=/path/to/transit_functiongemma_mcp/artifacts/behavior_logs
 # Add --prefix-cache to ExecStart when FUNCTIONGEMMA_PREFIX_CACHE=1 is set.

@@ -162,6 +162,8 @@ python scripts/run_three_stage_evaluation.py \
 
 従来protocolの大規模holdoutと手書き実用評価は互換回帰として残しています。
 旧regex意味評価を再現するときだけ`--legacy-semantic-eval`を明示してください。
+以下のr4コマンドと2026-06-29実測値は旧beta4回帰記録であり、現行Web配備の
+v1.0.0評価値ではありません。
 
 ```bash
 python evaluation/validate_eval_datasets.py
@@ -227,10 +229,12 @@ tool選択改善用のbalanced実験は [NEXT_EXPERIMENT.md](docs/NEXT_EXPERIMEN
 annotation migrationに限定され、productionでは使いません。棚卸しは
 `artifacts/PARSER_RULE_AUDIT.md`にあります。
 
-GTX 1650 4GBで口語日本語86件を加えた5 epochのLoRA本学習を完了しました。外部評価は
+以下は旧beta4（旧名r4）実験の記録です。現行Web配備の評価値ではありません。GTX 1650
+4GBで口語日本語86件を加えた5 epochのLoRA本学習を完了しました。外部評価は
 口語holdout 17件でparse/tool/arguments/no-call/schemaがすべて100%、9 class均等の
 corrected eval 72件でparse/tool/no-call/schemaが100%、expected argumentsが81.25%です。
-配備adapterは`outputs/functiongemma-transit-ja-real-r4`です。
+この旧実験のadapterは`outputs/functiongemma-transit-ja-real-r4`です。現行v1.0.0の系譜と
+評価は[リリースmanifest](docs/RELEASE_MANIFEST_v1.0.0.md)を参照してください。
 
 ## 6. LLMを使わない日本語回答パイプライン
 
@@ -256,7 +260,7 @@ python -m transit_functiongemma.route_renderer --input data/examples/place_sugge
 学習済みadapterを使った一連の実行:
 
 ```bash
-export FUNCTIONGEMMA_ADAPTER=outputs/functiongemma-transit-ja-real-r4
+export FUNCTIONGEMMA_ADAPTER=outputs/tentetsu-270m-v1.0.0
 
 python -m transit_functiongemma.answer_pipeline "東京駅を検索して"
 python -m transit_functiongemma.answer_pipeline "東京タワーを場所として探して"
@@ -301,6 +305,11 @@ python -m transit_functiongemma.route_renderer --input artifacts/normalized/exam
 静的UIはサーバーの`/var/www/html/transit/`に配置し、Apacheの内部プロキシから
 `127.0.0.1:8091`の常駐APIへ接続します。APIは学習済みadapterを一度だけGPUへロードし、
 各リクエストで同じ`ToolRouter`を再利用します。APIポート自体は外部公開しません。
+現行Web APIは`outputs/tentetsu-270m-v1.0.0`（Tentetsu-270M v1.0.0）をサーバー上の
+PyTorch/PEFT routerとして実行します。iPhoneアプリが端末内で実行するQ6_K GGUFとは
+画面上の安全境界を共有しますが、Web版はサーバー推論でありサーバレスではありません。
+`/api/health`は従来の`model`/`ready`に加えて、`router_release`、`adapter`、
+`inference_backend=server`を返します。
 
 ```text
 https://<your-domain>/transit/
@@ -316,20 +325,29 @@ journalctl --user -u transit-functiongemma-web.service -f
 
 ### 実運用behavior log
 
-数週間の表現揺れ・時刻解釈・tool選択を検証する場合は、systemd unitの
-`TRANSIT_BEHAVIOR_LOG=1`と`TRANSIT_BEHAVIOR_LOG_USER_QUERY=1`を有効にします。
-ログはJSTの日付ごとに次へ保存されます。
+公開デモ用systemd templateは匿名監査ログだけを有効にし、query hash・文字数・status
+などの運用指標だけを保存します。ユーザーの検索文、回答本文、raw座標は保存せず、詳細な
+behavior logも既定で無効です。
+
+同意を得た閉じた検証で数週間の表現揺れ・時刻解釈・tool選択を調べる場合に限り、systemd
+unitの`TRANSIT_BEHAVIOR_LOG=1`を明示的に有効にします。このflagだけではtiming、MCPの
+tool名・status・latency・attempt回数などの非本文指標だけを保存します。検索文と入力由来の
+router出力・tool引数・intentまで必要な場合は`TRANSIT_BEHAVIOR_LOG_USER_QUERY=1`を、
+回答本文も必要な場合は`TRANSIT_BEHAVIOR_LOG_ANSWER=1`を個別に指定します。
+これらは公開デモの既定値にしません。
+有効にしたbehavior logはJSTの日付ごとに次へ保存されます。
 
 ```text
 artifacts/behavior_logs/YYYY-MM-DD.jsonl
 ```
 
-各行はrequest ID、入力、router出力、モデルが出した`model_route_intent`、deterministic
-planner step、parsed tool call、schema検証、
-MCPへ送った最終引数、MCP status/attempt/latency、回答、全体latencyを持ちます。`lat`、`lon`、
-`geo:` endpointと緯度経度文字列は常にマスクし、MCP raw resultとnormalized route本体は
-behavior logへ保存しません。既定保持期間は45日で、期限切れの日次ファイルは起動時と
-日付変更後の最初の記録時に削除されます。
+各行はrequest ID、status、応答種別、文字数、MCP tool名とstatus/attempt/latency、全体
+latencyを持ちます。`TRANSIT_BEHAVIOR_LOG_USER_QUERY=1`の場合だけ、入力、router出力、
+`model_route_intent`、deterministic planner step、parsed tool call、schema検証、MCPへ送った
+最終引数も追加します。`TRANSIT_BEHAVIOR_LOG_ANSWER=1`の場合だけ回答本文も追加します。
+詳細モードでも`lat`、`lon`、`geo:` endpointと緯度経度文字列は常にマスクし、MCP raw
+resultとnormalized route本体はbehavior logへ保存しません。既定保持期間は45日で、
+期限切れの日次ファイルは起動時と日付変更後の最初の記録時に削除されます。
 
 ```bash
 # 今日のログを追う
@@ -340,8 +358,9 @@ rsync -av <server>:/path/to/transit_functiongemma_mcp/artifacts/behavior_logs/ \
   artifacts/behavior_logs/
 ```
 
-検索文保存は検証期間だけ有効にし、終了後は
-`TRANSIT_BEHAVIOR_LOG_USER_QUERY=0`または`TRANSIT_BEHAVIOR_LOG=0`へ戻してください。
+詳細ログはアクセスを制限した検証期間だけ有効にし、終了後は
+`TRANSIT_BEHAVIOR_LOG_USER_QUERY=0`、`TRANSIT_BEHAVIOR_LOG_ANSWER=0`、
+`TRANSIT_BEHAVIOR_LOG=0`へ戻してください。
 
 都内経路の実運用表現サンプルをまとめて実Web APIへ流す場合:
 

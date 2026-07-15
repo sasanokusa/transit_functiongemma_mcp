@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from transit_functiongemma.answer_pipeline import StationSelectionRequired, SuggestionSelectionRequired
-from web_api import TransitAPI, _compose_route_prompt
+from web_api import BehaviorLogger, DEFAULT_WEB_ADAPTER, TransitAPI, _compose_route_prompt
 
 
 class WebAPISessionTest(unittest.TestCase):
@@ -149,6 +149,103 @@ class WebAPISessionTest(unittest.TestCase):
         self.assertTrue(mocked.call_args.kwargs["default_graphical"])
 
 
+class WebAPIHealthTest(unittest.TestCase):
+    def test_default_adapter_is_canonical_v1_release(self) -> None:
+        self.assertEqual(DEFAULT_WEB_ADAPTER, "outputs/tentetsu-270m-v1.0.0")
+
+    def test_health_identifies_server_backed_canonical_release(self) -> None:
+        api = TransitAPI.__new__(TransitAPI)
+        api.adapter = DEFAULT_WEB_ADAPTER
+
+        health = api.health()
+
+        self.assertTrue(health["ready"])
+        self.assertIn("model", health)
+        self.assertEqual(health["router_release"], "tentetsu-270m-v1.0.0")
+        self.assertEqual(health["inference_backend"], "server")
+        self.assertEqual(health["adapter"], "tentetsu-270m-v1.0.0")
+        self.assertNotIn("outputs/", str(health))
+
+    def test_health_does_not_mislabel_custom_adapter(self) -> None:
+        api = TransitAPI.__new__(TransitAPI)
+        api.adapter = "/private/models/experimental-rc"
+
+        health = api.health()
+
+        self.assertEqual(health["router_release"], "custom")
+        self.assertEqual(health["adapter"], "experimental-rc")
+        self.assertNotIn("/private/", str(health))
+
+
+class BehaviorLoggerPrivacyTest(unittest.TestCase):
+    def _trace(self) -> dict:
+        return {
+            "router_outputs": ["東京駅から上野駅"],
+            "tool_calls": [
+                {"name": "plan_journey", "arguments": {"from": "東京駅"}}
+            ],
+            "model_route_intent": {
+                "origin_text": "東京駅",
+                "destination_text": "上野駅",
+                "date": "2026-07-16",
+            },
+            "mcp_calls": [
+                {
+                    "tool": "plan_journey",
+                    "arguments": {
+                        "from": "geo:35.6812,139.7671",
+                        "to": "上野駅",
+                    },
+                    "status": "ok",
+                    "latency_ms": 123.4,
+                    "attempts": 1,
+                    "raw_path": "artifacts/private.json",
+                }
+            ],
+            "timings": {
+                "model_latency_ms": 10.5,
+                "unsafe": "東京駅",
+                "東京駅_ms": 999,
+            },
+            "rendered_answer": "上野駅へ到着します。",
+            "no_call": False,
+        }
+
+    def test_trace_without_query_opt_in_contains_metrics_only(self) -> None:
+        logger = BehaviorLogger(enabled=False, save_query=False, save_answer=False)
+
+        summary = logger._trace_summary(self._trace())
+
+        self.assertEqual(summary["timings"], {"model_latency_ms": 10.5})
+        self.assertEqual(
+            summary["mcp_calls"],
+            [
+                {
+                    "tool": "plan_journey",
+                    "status": "ok",
+                    "latency_ms": 123.4,
+                    "attempts": 1,
+                }
+            ],
+        )
+        self.assertFalse(summary["no_call"])
+        self.assertNotIn("東京駅", str(summary))
+        self.assertNotIn("arguments", str(summary))
+        self.assertNotIn("rendered_answer", summary)
+
+    def test_query_opt_in_allows_detail_but_answer_remains_separate(self) -> None:
+        logger = BehaviorLogger(enabled=False, save_query=True, save_answer=False)
+
+        summary = logger._trace_summary(self._trace())
+
+        self.assertEqual(summary["router_outputs"], ["東京駅から上野駅"])
+        self.assertEqual(
+            summary["mcp_calls"][0]["arguments"]["to"],
+            "上野駅",
+        )
+        self.assertNotIn("rendered_answer", summary)
+
+
 class RouteMapResourceCacheTest(unittest.TestCase):
     def setUp(self) -> None:
         self.api = TransitAPI.__new__(TransitAPI)
@@ -156,8 +253,6 @@ class RouteMapResourceCacheTest(unittest.TestCase):
         self.api.ui_resource_cache = {}
 
     def _fake_client(self, reads: list[int], html: str = "<html>map</html>"):
-        outer = self
-
         class FakeClient:
             def __init__(self, endpoint: str) -> None:
                 pass
