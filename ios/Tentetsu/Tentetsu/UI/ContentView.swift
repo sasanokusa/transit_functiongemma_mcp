@@ -5,6 +5,7 @@ struct ContentView: View {
     @StateObject private var model = AppModel()
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var queryIsFocused: Bool
+    @State private var showsMenu = false
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,15 @@ struct ContentView: View {
             }
             .navigationTitle("転轍")
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        queryIsFocused = false
+                        showsMenu = true
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("メニュー")
+                }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("完了") { queryIsFocused = false }
@@ -53,6 +63,9 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .startVoiceSearchRequested)) { _ in
                 model.startVoiceFromShortcutIfNeeded()
+            }
+            .sheet(isPresented: $showsMenu) {
+                AppMenuView(prefersMap: $model.prefersMap)
             }
         }
     }
@@ -210,12 +223,6 @@ private struct RouteResultsView: View {
                 TransitMapView(option: selected)
                     .frame(height: 260)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(alignment: .bottomTrailing) {
-                        Text("© OpenStreetMap contributors")
-                            .font(.system(size: 8)).padding(4)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 4))
-                            .padding(6)
-                    }
             } else if isMapLoading {
                 HStack(spacing: 12) {
                     ProgressView()

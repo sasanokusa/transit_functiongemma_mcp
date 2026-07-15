@@ -9,7 +9,9 @@ final class AppModel: ObservableObject {
     @Published var isBusy = false
     @Published var modelReady = false
     @Published var elapsedMilliseconds: Double?
-    @Published var prefersMap = true
+    @Published var prefersMap = UserDefaults.standard.object(forKey: "prefersMap") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(prefersMap, forKey: "prefersMap") }
+    }
     @Published var routePresentation: TransitRoutePresentation?
     @Published private(set) var isMapLoading = false
     @Published private(set) var mapLoadMessage: String?

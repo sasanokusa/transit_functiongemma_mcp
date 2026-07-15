@@ -1,0 +1,9 @@
+Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms
+
+Tentetsu includes a modified derivative of google/functiongemma-270m-it.
+The model was fine-tuned for transit function calling and quantized to Q6_K by
+the Tentetsu project. These modifications are not made, endorsed, or sponsored
+by Google.
+
+The application uses llama.cpp under the MIT License. The complete llama.cpp
+license notice is available in the application's License screen.

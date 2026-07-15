@@ -31,6 +31,9 @@ must not hide deterioration in the raw metric even when deterministic normalizat
 - [x] Raw model/tool output is hidden unless the debug environment flag is explicit
 - [x] Speech input starts recording on device without an authorization/runtime error
 - [x] Keyboard can be dismissed by Done, scrolling, background tap, search, or voice input
+- [x] In-app menu exposes map settings, permissions, privacy, data sources, licenses, and version
+- [x] Gemma required notice and llama.cpp MIT license are available in-app
+- [x] Privacy manifest declares no tracking/collection and app-only UserDefaults reason `CA92.1`
 - [ ] Assign the prepared opaque 1024×1024 icon after an iOS Simulator runtime is available to `actool`
 - [ ] Re-run a visual pass on the installed icon, progressive map placeholder, and final timeline
 

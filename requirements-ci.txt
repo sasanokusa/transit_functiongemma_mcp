@@ -1,0 +1,5 @@
+# Lightweight dependencies for deterministic/unit checks. Model-backed tests
+# self-skip when the optional ML runtime and local weights are unavailable.
+httpx>=0.27,<1
+jsonschema>=4.23,<5
+pytest>=8,<9

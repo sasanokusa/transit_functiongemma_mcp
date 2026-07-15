@@ -322,9 +322,6 @@ def run_pipeline(
     ui_payload: dict[str, Any] | None = None,
     default_graphical: bool = False,
 ) -> str:
-    # Keep torch/Transformers imports out of offline normalizer/renderer usage.
-    from transit_functiongemma.infer import ToolRouter
-
     pipeline_started = time.monotonic()
 
     def add_timing(name: str, elapsed_ms: float) -> None:
@@ -339,14 +336,20 @@ def run_pipeline(
                 (time.monotonic() - pipeline_started) * 1000, 2
             )
 
-    router = router_instance or ToolRouter(
-        base_model=MODEL_ID,
-        adapter=adapter,
-        schema_path=schema_path,
-        schema_mode=schema_mode,
-        clarification_tool=clarification_tool,
-        normalize_ja=normalize_ja,
-    )
+    if router_instance is None:
+        # Keep torch/Transformers imports out of offline and injected-router use.
+        from transit_functiongemma.infer import ToolRouter
+
+        router = ToolRouter(
+            base_model=MODEL_ID,
+            adapter=adapter,
+            schema_path=schema_path,
+            schema_mode=schema_mode,
+            clarification_tool=clarification_tool,
+            normalize_ja=normalize_ja,
+        )
+    else:
+        router = router_instance
     station_overrides = station_overrides or {}
     if trace is not None:
         trace.update(

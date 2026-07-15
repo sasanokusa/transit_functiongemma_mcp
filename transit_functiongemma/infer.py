@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import torch
 from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoProcessor
+from transformers import AutoModelForCausalLM
 
 from transit_functiongemma.config import DEFAULT_SCHEMA_PATH, DEVELOPER_PROMPT, MODEL_ID
 from transit_functiongemma.constrained_decode import (
@@ -27,6 +27,7 @@ from transit_functiongemma.japanese import (
     normalize_japanese_prompt,
     normalize_user_messages,
 )
+from transit_functiongemma.processor import load_router_processor
 from transit_functiongemma.schemas import (
     CLARIFICATION_TOOL_NAME,
     compact_functiongemma_tools,
@@ -124,22 +125,6 @@ def render_router_prompt(
             tokenize=False,
         )
     )
-
-
-def load_router_processor(base_model: str, adapter: str | None = None) -> Any:
-    """Load adapter processor metadata when present, otherwise use the base model."""
-    source = adapter or base_model
-    try:
-        return AutoProcessor.from_pretrained(source)
-    except (OSError, ValueError):
-        if not adapter:
-            raise
-        logger.warning(
-            "Processor metadata is unavailable in adapter %s; loading it from base model %s.",
-            adapter,
-            base_model,
-        )
-        return AutoProcessor.from_pretrained(base_model)
 
 
 class ToolRouter:
