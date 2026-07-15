@@ -24,7 +24,8 @@
 | Base | `google/functiongemma-270m-it` snapshot `39eccb091651513a5dfb56892d3714c1b5b8276c` |
 | 学習データ `r10b_curated.jsonl` SHA-256 | `119c2ad259bf97e743a339a8770c01863ae08c1edf7b4761765d00820c677e2f`（8,739行、`docs/DATA_POLICY.md`準拠） |
 | 学習 | LoRA rank4/alpha8 全projection、512tok、3 epochs、外部4セット選択でepoch-2採用 |
-| GGUF Q6_K | 変換中（完了後にSHA-256追記） |
+| GGUF Q6_K SHA-256 | `89eeb9d467995a32e9935b26f8543fd7c758bce32a0f5b03391873e05d4aaabb` |
+| iPhone bundle | `ios/Tentetsu/Tentetsu/Resources/models/tentetsu-q6_k.gguf`（gitignore対象、署名bundle内でhash検証） |
 
 ## 実測（fp32、2026-07-11バッテリー）
 
@@ -38,8 +39,13 @@
 残差74/300の内訳: tool正解・引数ミス48、parse系12、真のtool混同10 —
 「tool選択」は解決済み、残る前線は**multi-turn経路callの引数忠実度**（strategy/type/time）。
 
-## v1.0.0のGo条件（残）
+## 2026-07-15 有線デモ採用判断
 
-1. Q6_K量子化ゲート: fp32比 主要指標 ≤1.0pp低下
-2. multi-turn引数対照データ（rc11候補）はv1.0.x系の改善として並走
-3. GGUF backend E2E・Pi配備・運用4項目（salt/WAF/監視/保持）は v1.0.0公開判定の前提
+同一の現行final-bound評価器でv1.0.0 Q6_Kとrc11 fp32/Q6/Q8を比較した結果、rc11は
+manualセットを改善する一方、independentセットを悪化させ、量子化候補として一貫した
+昇格根拠になりませんでした。既に実機スモークを通過し、量子化候補中でindependentの
+semanticが最も高い本Q6_Kを、入力範囲を明示した有線デモ用として維持します。
+
+これは不特定多数向けの公開Go判定ではありません。比較値、rc11 hash、評価器の既知の
+binder影響は`docs/RC11_RELEASE_EVALUATION.md`に分離して記録します。公開前にはGGUF
+backendの広範なE2E、salt/WAF/監視/保持、App Store用アセットと配布規約を別途満たします。

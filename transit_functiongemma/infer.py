@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 import torch
 from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoProcessor
+from transformers import AutoModelForCausalLM
 
 from transit_functiongemma.config import DEFAULT_SCHEMA_PATH, DEVELOPER_PROMPT, MODEL_ID
 from transit_functiongemma.constrained_decode import (
@@ -27,6 +27,7 @@ from transit_functiongemma.japanese import (
     normalize_japanese_prompt,
     normalize_user_messages,
 )
+from transit_functiongemma.processor import load_router_processor
 from transit_functiongemma.schemas import (
     CLARIFICATION_TOOL_NAME,
     compact_functiongemma_tools,
@@ -138,7 +139,7 @@ class ToolRouter:
         constrained_decode: bool = False,
         prefix_cache: bool = False,
     ):
-        self.processor = AutoProcessor.from_pretrained(adapter or base_model)
+        self.processor = load_router_processor(base_model, adapter)
         if torch.cuda.is_available():
             # GTX 1650: directly storing FunctionGemma's large RMSNorm weights as
             # fp16 produces NaN logits. The 270M fp32 base still fits in 4GB;

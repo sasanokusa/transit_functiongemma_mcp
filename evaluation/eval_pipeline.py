@@ -25,7 +25,7 @@ FIXED_SCENARIOS = [
         "id": "demo-01",
         "prompt": "東京駅を検索して",
         "expected_tool": "suggest_stations",
-        "expected_arguments": {"q": "東京"},
+        "expected_arguments": {"q": "東京駅"},
     },
     {
         "id": "demo-02",
@@ -44,7 +44,7 @@ FIXED_SCENARIOS = [
         "id": "demo-05",
         "prompt": "明日9時に品川に着きたい",
         "expected_no_call": True,
-        "expected_answer_contains": "出発地が不足",
+        "expected_clarification_missing": ["origin"],
     },
     {
         "id": "demo-06",
@@ -56,7 +56,7 @@ FIXED_SCENARIOS = [
         "id": "demo-07",
         "prompt": "東京駅まで行きたい",
         "expected_no_call": True,
-        "expected_answer_contains": "出発地が不足",
+        "expected_clarification_missing": ["origin"],
     },
 ]
 
@@ -82,6 +82,67 @@ def contains_expected_arguments(
     return not expected or all(actual.get(key) == value for key, value in expected.items())
 
 
+_CLARIFICATION_TERMS = {
+    "origin": ("出発", "どこから"),
+    "destination": ("目的地", "どこまで", "どこへ"),
+    "date": ("日", "いつ"),
+    "time": ("時", "いつ"),
+    "station_id": ("駅", "ID"),
+}
+
+
+def valid_expected_clarification(
+    trace: dict[str, Any], answer: str, expected_missing: list[str]
+) -> bool:
+    """Require a local, semantically relevant clarification with zero MCP calls."""
+    if trace.get("mcp_calls"):
+        return False
+    tool_calls = trace.get("tool_calls") or []
+    if len(tool_calls) != 1 or tool_calls[0].get("name") != "ask_clarification":
+        return False
+    arguments = tool_calls[0].get("arguments") or {}
+    actual_missing = arguments.get("missing")
+    question = arguments.get("question")
+    if not isinstance(actual_missing, list) or set(actual_missing) != set(expected_missing):
+        return False
+    if not isinstance(question, str) or not question.strip() or answer != question:
+        return False
+    return all(
+        any(term in answer for term in _CLARIFICATION_TERMS.get(field, (field,)))
+        for field in expected_missing
+    )
+
+
+def scenario_expectations_met(
+    scenario: dict[str, Any], trace: dict[str, Any], answer: str, error: str | None
+) -> bool:
+    calls = trace.get("mcp_calls") or []
+    final_tool = calls[-1].get("tool") if calls else None
+    expected_missing = scenario.get("expected_clarification_missing")
+    if expected_missing:
+        success = (
+            error is None
+            and bool(answer)
+            and valid_expected_clarification(trace, answer, expected_missing)
+        )
+    elif scenario.get("expected_no_call"):
+        success = not calls and bool(answer) and error is None
+    else:
+        success = (
+            final_tool == scenario.get("expected_tool")
+            and bool(answer)
+            and answer != USER_ERROR
+            and error is None
+        )
+    if success and scenario.get("expected_arguments"):
+        success = bool(calls) and contains_expected_arguments(
+            calls[-1].get("arguments") or {}, scenario["expected_arguments"]
+        )
+    if success and scenario.get("expected_answer_contains"):
+        success = scenario["expected_answer_contains"] in answer
+    return success
+
+
 def markdown(report: dict[str, Any]) -> str:
     metrics = report["metrics"]
     lines = [
@@ -99,6 +160,7 @@ def markdown(report: dict[str, Any]) -> str:
             "## Configuration",
             "",
             f"- Route candidates requested per scenario: {report['configuration']['max_routes']}",
+            f"- Clarification tool enabled: {report['configuration']['clarification_tool']}",
         ]
     )
     lines.extend(
@@ -132,6 +194,11 @@ def main() -> None:
     parser.add_argument("--latency-output", type=Path, default=Path("artifacts/latency_report.json"))
     parser.add_argument("--trace-dir", type=Path, default=Path("artifacts/e2e_traces"))
     parser.add_argument(
+        "--clarification-tool",
+        action="store_true",
+        help="Enable the local ask_clarification pseudo-tool in router and pipeline validation.",
+    )
+    parser.add_argument(
         "--max-routes",
         type=int,
         default=1,
@@ -143,12 +210,12 @@ def main() -> None:
     from transit_functiongemma.infer import ToolRouter
 
     router = ToolRouter(
-        args.base_model,
-        args.adapter,
-        args.schema,
-        "baked",
-        False,
-        True,
+        base_model=args.base_model,
+        adapter=args.adapter,
+        schema_path=args.schema,
+        schema_mode="baked",
+        clarification_tool=args.clarification_tool,
+        normalize_ja=True,
     )
     rows: list[dict[str, Any]] = []
     latencies: list[float] = []
@@ -175,6 +242,7 @@ def main() -> None:
                 save_normalized=args.trace_dir / "normalized",
                 trace=trace,
                 max_routes=args.max_routes,
+                clarification_tool=args.clarification_tool,
             )
         except MCPTimeoutError as exc:
             timeout_count += 1
@@ -198,21 +266,7 @@ def main() -> None:
                 if call.get("status") == "ok":
                     retry_success += 1
         final_tool = calls[-1]["tool"] if calls else None
-        if scenario.get("expected_no_call"):
-            success = not calls and bool(answer) and error is None
-        else:
-            success = (
-                final_tool == scenario.get("expected_tool")
-                and bool(answer)
-                and answer != USER_ERROR
-                and error is None
-            )
-        if success and scenario.get("expected_arguments"):
-            success = contains_expected_arguments(
-                calls[-1].get("arguments") or {}, scenario["expected_arguments"]
-            )
-        if success and scenario.get("expected_answer_contains"):
-            success = scenario["expected_answer_contains"] in answer
+        success = scenario_expectations_met(scenario, trace, answer, error)
         source_only = renderer_uses_present_facts(trace)
         success = success and source_only
         trace.update(
@@ -258,7 +312,10 @@ def main() -> None:
         "mcp_latency_p95_ms": percentile(mcp_latencies, 0.95),
     }
     report = {
-        "configuration": {"max_routes": args.max_routes},
+        "configuration": {
+            "max_routes": args.max_routes,
+            "clarification_tool": args.clarification_tool,
+        },
         "metrics": metrics,
         "mcp_status": dict(status_counts),
         "scenarios": rows,

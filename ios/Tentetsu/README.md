@@ -1,0 +1,82 @@
+# Tentetsu for iPhone
+
+FunctionGemma v1.0.0 Q6_K を iPhone 上の llama.cpp で実行し、生成されたツール呼び出しだけを Transit MCP に送る試作アプリです。推論用サーバーは使いません。
+
+## 現在の機能
+
+- バンドル済み Q6_K GGUF の端末内推論
+- 日本語のテキスト入力と音声入力
+- FunctionGemma のツール呼び出しを厳格に解析
+- `suggest_places` を使った駅名解決と Transit MCP の経路検索
+- 候補切替、路線色、乗換タイムライン、経路ポリラインを備えたネイティブ地図表示
+- 経路概要を先に表示し、時間のかかる地図をバックグラウンドで後着更新
+- 非日本語入力・曖昧入力・未対応の回避/路線指定・MCP障害を内部出力なしで案内する安全境界
+- App Shortcut「乗換を音声で調べる」（アクションボタンから選択可能）
+- アプリ内メニュー（地図設定、権限、プライバシー、データ提供元、ライセンス、バージョン）
+
+Transit MCP の接続先は `https://api.transit.ls8h.com/mcp` です。経路結果は端末内の決定論的ラッパーで、発着時刻・所要時間・乗換・徒歩・路線ごとの日本語表示へ整形します。
+
+有線デモで保証する入力範囲は、日本語の出発地・目的地、明示した経由地、日時、
+始発/終電/到着/出発、および速さ・安さ・乗換/徒歩の少なさです。モデルが提案した任意条件は
+ユーザー文から再構築してからMCPへ送ります。駅や路線の回避、利用路線・交通機関の限定は
+現在のiPhone版では正確に適用できないため、条件を無視して検索せず入力時点で案内します。
+
+## 実機への導入
+
+1. `Tentetsu.xcodeproj` を Xcode で開く。
+2. Xcode の Settings > Accounts で Apple ID を追加する。
+3. Tentetsu ターゲットの Signing & Capabilities で自分の Team を選ぶ。
+4. 接続した iPhone を実行先に選び、Run を押す。
+5. 初回起動時に音声認識とマイクへのアクセスを許可する。
+
+無料の Personal Team でも自分の端末での試用は可能ですが、プロビジョニングには有効期限があります。
+
+## アクションボタン
+
+アプリを一度起動した後、iPhone の Settings > Action Button > Shortcut から「Tentetsuで乗換を調べる」を選びます。呼び出すとアプリを開き、音声入力を開始します。
+
+## モデル
+
+- ファイル: `Tentetsu/Resources/models/tentetsu-q6_k.gguf`
+- 量子化: Q6_K
+- SHA-256: `89eeb9d467995a32e9935b26f8543fd7c758bce32a0f5b03391873e05d4aaabb`
+
+GGUF は `.gitignore` 対象です。別の端末やクローンでは同じ場所に配置してください。
+
+## llama.cpp
+
+アプリは GGUF 変換時と同じ llama.cpp `b9925`（commit `ed8c26150e6b0ed6e2635cab75ace5ed121482ca`）から生成した `Frameworks/llama.xcframework` を利用します。XCFramework もサイズが大きいため `.gitignore` 対象です。
+
+## プライバシーとライセンス
+
+入力全文の理解は端末内で行い、Transit MCPには駅名、日時、経由地など経路計算に
+必要な条件だけを送信します。検索履歴、音声録音、MCP応答をアプリが永続保存する
+機能はありません。音声認識はApple Speech、背景地図はApple MapKitを使用します。
+
+`Resources/PrivacyInfo.xcprivacy`は追跡なし、アプリによるデータ収集なし、および
+アプリ専用`UserDefaults`（`CA92.1`）を宣言します。同梱モデルはGemma Terms of Useの
+対象であり、必須文言は`Resources/NOTICE.txt`とアプリ内のライセンス画面に収録します。
+llama.cppのMIT License全文、交通データのカタログ、OpenStreetMapとApple Mapsの表記も
+アプリ内メニューから確認できます。
+
+## 確認済み環境
+
+- Xcode 26.3
+- iOS deployment target 17.0
+- iPhone 向け arm64 署名ビルド成功
+- Release構成のclean build、静的解析、Store bundle検証、厳格なcodesign検証に成功
+- 実機インストール、Q6_K端末内推論、音声入力開始を確認
+- 「東京駅から自由が丘」で概要2候補の先行表示後、地図6区間への更新を確認
+- 120px/180pxの不透明bundle iconを実機向けに登録（表示名「転轍」）
+- ホーム画面と「このアプリについて」で同じ転轍アイコンを使用
+
+現在のXcode環境にはiOS Simulator runtimeがなく、1024px画像をAppIcon assetへ登録すると
+端末ビルドでも`actool`がSimulator runtimeを要求します。有線導入デモでは同じデザインから
+生成した`Icon-60@2x.png`と`Icon-60@3x.png`を従来型bundle iconとして使用します。
+App Store配布前にはSimulator runtimeを導入し、`Design/AppIcon.png`をAsset Catalogへ登録します。
+
+## デモ時の既知事項
+
+Transit MCPの経路計算は、接続時間とは別に10〜25秒程度かかる場合があります。
+地図付き表示では経路概要と地図を並行取得し、概要を先に操作可能にします。地図取得に
+失敗しても、取得済みの時刻・乗換・徒歩案内は保持されます。

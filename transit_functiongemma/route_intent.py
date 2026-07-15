@@ -91,7 +91,8 @@ def normalize_time(text: str) -> str | None:
         hour = int(match.group(1))
         minute = 30 if "半" in match.group(0) else int(match.group(2) or 0)
     prefix = value[max(0, match.start() - 4) : match.start()]
-    if "午後" in prefix and hour < 12:
+    night_clock = prefix.endswith("夜") and not prefix.endswith("深夜")
+    if ("午後" in prefix or night_clock) and hour < 12:
         hour += 12
     elif "午前" in prefix and hour == 12:
         hour = 0

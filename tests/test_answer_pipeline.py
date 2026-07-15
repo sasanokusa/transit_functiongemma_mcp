@@ -1,14 +1,19 @@
 import unittest
+from datetime import datetime as RealDateTime
+from unittest.mock import patch
 
 from transit_functiongemma.answer_pipeline import (
     _display_suggestions,
     _planned_call_from_model_intent,
+    _refine_clarification_call,
     _route_arguments,
     _route_intent_with_defaults,
     handle_local_call,
     handle_no_call,
+    run_pipeline,
 )
 from transit_functiongemma.local_tools import extract_route_hints
+from transit_functiongemma.toolcall import ToolCall
 
 
 class AnswerPipelineOfflineTest(unittest.TestCase):
@@ -30,6 +35,30 @@ class AnswerPipelineOfflineTest(unittest.TestCase):
             {"missing": ["destination"], "question": "目的地を教えてください。"},
         )
         self.assertEqual(text, "目的地を教えてください。")
+
+    def test_clarification_removes_destination_already_present_in_text(self) -> None:
+        model_call = ToolCall(
+            "ask_clarification",
+            {
+                "missing": ["origin", "destination"],
+                "question": "出発地と目的地を教えてください。",
+            },
+        )
+        refined = _refine_clarification_call(
+            model_call, "明日9時に品川に着きたい"
+        )
+        self.assertEqual(refined.arguments["missing"], ["origin"])
+        self.assertEqual(refined.arguments["question"], "出発地が不足しています。どこから出発しますか？")
+
+    def test_clarification_is_not_relaxed_when_runtime_cannot_narrow_it(self) -> None:
+        model_call = ToolCall(
+            "ask_clarification",
+            {
+                "missing": ["origin", "destination"],
+                "question": "出発地と目的地を教えてください。",
+            },
+        )
+        self.assertIs(_refine_clarification_call(model_call, "乗換少なめで"), model_call)
 
     def test_complete_but_unrouted_request_does_not_claim_fields_are_missing(self) -> None:
         self.assertEqual(
@@ -110,6 +139,152 @@ class AnswerPipelineOfflineTest(unittest.TestCase):
             ],
         )
         self.assertEqual(final_call.name, "plan_route_map")
+
+    def test_final_planner_call_is_fully_derived_from_preserved_state(self) -> None:
+        intent = {
+            "origin_text": "新宿",
+            "destination_text": "東京",
+            "via_station_texts": ["六本木"],
+            "graphical": True,
+            "priority": "few_transfers",
+            "time_mode": "arrive_by",
+            "date": "20260712",
+            "time": "09:30",
+            "avoid_modes": ["bus"],
+        }
+        call = _planned_call_from_model_intent(
+            intent,
+            [
+                {"name": "新宿駅", "endpoint": "geo:1,1"},
+                {"name": "六本木駅", "endpoint": "geo:2,2"},
+                {"name": "東京駅", "endpoint": "geo:3,3"},
+            ],
+            num_itineraries=6,
+        )
+        self.assertEqual(call.name, "plan_route_map")
+        self.assertEqual(
+            call.arguments,
+            {
+                "from": "geo:1,1",
+                "to": "geo:3,3",
+                "fromLabel": "新宿駅",
+                "toLabel": "東京駅",
+                "via": ["geo:2,2"],
+                "viaLabel": ["六本木駅"],
+                "date": "20260712",
+                "time": "09:30",
+                "type": "arrival",
+                "numItineraries": 6,
+                "avoidModes": "bus",
+                "strategy": "fewestTransfers",
+            },
+        )
+
+    def test_route_request_calls_router_once_and_executes_preserved_intent(self) -> None:
+        class FakeRouter:
+            def __init__(self) -> None:
+                self.calls = []
+
+            def generate(self, user_text=None, history=None):
+                self.calls.append((user_text, history))
+                return (
+                    "<start_function_call>call:resolve_route_request{"
+                    "origin_text:<escape>新宿<escape>,"
+                    "destination_text:<escape>新宿<escape>,"
+                    "via_station_texts:[<escape>六本木<escape>],"
+                    "graphical:true,priority:<escape>cheap<escape>,"
+                    "time_mode:<escape>arrive_by<escape>,"
+                    "date:<escape>20260715<escape>,time:<escape>08:10<escape>}"
+                    "<end_function_call>"
+                )
+
+        class FixedDateTime(RealDateTime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls(2026, 7, 11, 10, 0, tzinfo=tz)
+
+        class FakeMCPClient:
+            instance = None
+
+            def __init__(self, _url) -> None:
+                self.calls = []
+                self.last_attempts = 1
+                FakeMCPClient.instance = self
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def call_tool(self, name, arguments, *, tools):
+                self.calls.append((name, arguments))
+                return {"result": {"content": [], "structuredContent": {}}}
+
+        stations = {
+            "新宿": {"name": "新宿駅", "endpoint": "geo:1,1"},
+            "六本木": {"name": "六本木駅", "endpoint": "geo:2,2"},
+        }
+        resolution_queries = []
+
+        def resolved(query, _suggestions, *, near=None):
+            resolution_queries.append(query)
+            return {"status": "resolved", "query": query, "station": stations[query]}
+
+        router = FakeRouter()
+        with (
+            patch("transit_functiongemma.answer_pipeline.MCPClient", FakeMCPClient),
+            patch("transit_functiongemma.answer_pipeline.datetime", FixedDateTime),
+            patch(
+                "transit_functiongemma.answer_pipeline.normalize_mcp_result",
+                side_effect=lambda _envelope, tool, _arguments, **_kwargs: (
+                    {"suggestions": []}
+                    if tool == "suggest_places"
+                    else {"status": "ok", "routes": []}
+                ),
+            ),
+            patch(
+                "transit_functiongemma.answer_pipeline.resolve_physical_station",
+                side_effect=resolved,
+            ),
+            patch(
+                "transit_functiongemma.answer_pipeline.apply_route_constraints",
+                side_effect=lambda value: value,
+            ),
+            patch(
+                "transit_functiongemma.answer_pipeline.rerank_routes",
+                side_effect=lambda value: value,
+            ),
+            patch("transit_functiongemma.answer_pipeline.render_answer", return_value="ok"),
+        ):
+            answer = run_pipeline(
+                "明日9時に新宿から六本木経由で新宿へ着きたい。地図で安いルート",
+                router_instance=router,
+                save_raw=None,
+            )
+
+        self.assertEqual(answer, "ok")
+        self.assertEqual(len(router.calls), 1)
+        self.assertIsNone(router.calls[0][1])
+        self.assertEqual(resolution_queries, ["新宿", "六本木", "新宿"])
+        final_name, final_arguments = FakeMCPClient.instance.calls[-1]
+        self.assertEqual(final_name, "plan_route_map")
+        self.assertEqual(
+            final_arguments,
+            {
+                "from": "geo:1,1",
+                "to": "geo:1,1",
+                "fromLabel": "新宿駅",
+                "toLabel": "新宿駅",
+                "via": ["geo:2,2"],
+                "viaLabel": ["六本木駅"],
+                "date": "20260712",
+                "time": "09:00",
+                "type": "arrival",
+                "numItineraries": 6,
+                "strategy": "lowestFare",
+            },
+        )
 
 
 if __name__ == "__main__":
