@@ -34,7 +34,8 @@ must not hide deterioration in the raw metric even when deterministic normalizat
 - [x] In-app menu exposes map settings, permissions, privacy, data sources, licenses, and version
 - [x] Gemma required notice and llama.cpp MIT license are available in-app
 - [x] Privacy manifest declares no tracking/collection and app-only UserDefaults reason `CA92.1`
-- [ ] Assign the prepared opaque 1024×1024 icon after an iOS Simulator runtime is available to `actool`
+- [x] Bundle the prepared opaque icon at 120×120 and 180×180 for the wired-device demo
+- [ ] Before App Store distribution, install an iOS Simulator runtime and move the 1024×1024 icon into the AppIcon asset catalog
 - [ ] Re-run a visual pass on the installed icon, progressive map placeholder, and final timeline
 
 Measured Transit MCP latency is currently dominated by server-side planning: `plan_journey`

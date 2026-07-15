@@ -20,6 +20,8 @@
 		B10000012D00000100000001 /* AppMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000022D00000100000001 /* AppMenuView.swift */; };
 		B10000032D00000100000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B10000042D00000100000001 /* PrivacyInfo.xcprivacy */; };
 		B10000052D00000100000001 /* NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = B10000062D00000100000001 /* NOTICE.txt */; };
+		B10000072D00000100000001 /* Icon-60@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = B10000082D00000100000001 /* Icon-60@2x.png */; };
+		B10000092D00000100000001 /* Icon-60@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = B100000A2D00000100000001 /* Icon-60@3x.png */; };
 		DD84C9FD2D747FED007778EC /* llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD84C9FC2D747FED007778EC /* llama.xcframework */; };
 		DD84C9FE2D747FED007778EC /* llama.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DD84C9FC2D747FED007778EC /* llama.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F1FE20E22B465ECA00B45541 /* LoadCustomButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1FE20E12B465EC900B45541 /* LoadCustomButton.swift */; };
@@ -54,6 +56,9 @@
 		B10000022D00000100000001 /* AppMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMenuView.swift; sourceTree = "<group>"; };
 		B10000042D00000100000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B10000062D00000100000001 /* NOTICE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = NOTICE.txt; sourceTree = "<group>"; };
+		B10000082D00000100000001 /* Icon-60@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Icon-60@2x.png"; sourceTree = "<group>"; };
+		B100000A2D00000100000001 /* Icon-60@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Icon-60@3x.png"; sourceTree = "<group>"; };
+		B100000B2D00000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DD84C9FC2D747FED007778EC /* llama.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = llama.xcframework; path = Frameworks/llama.xcframework; sourceTree = "<group>"; };
 		DF2D2FE72B4A59BE00FCB72D /* llama.cpp */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = llama.cpp; path = ../..; sourceTree = "<group>"; };
 		F1FE20E12B465EC900B45541 /* LoadCustomButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadCustomButton.swift; sourceTree = "<group>"; };
@@ -99,6 +104,7 @@
 				8A3F84102AC4BD85005E2EE8 /* Resources */,
 				8A9F7C4B2AC332DC008AE1EA /* Models */,
 				8A9F7C4A2AC332BF008AE1EA /* UI */,
+				B100000B2D00000100000001 /* Info.plist */,
 				8A1C83762AC328BD0096AF73 /* TentetsuApp.swift */,
 				8A1C837A2AC328BE0096AF73 /* Assets.xcassets */,
 			);
@@ -121,6 +127,8 @@
 				8A3F84112AC4BD8C005E2EE8 /* models */,
 				B10000042D00000100000001 /* PrivacyInfo.xcprivacy */,
 				B10000062D00000100000001 /* NOTICE.txt */,
+				B10000082D00000100000001 /* Icon-60@2x.png */,
+				B100000A2D00000100000001 /* Icon-60@3x.png */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -228,6 +236,8 @@
 				8A1C837B2AC328BE0096AF73 /* Assets.xcassets in Resources */,
 				B10000032D00000100000001 /* PrivacyInfo.xcprivacy in Resources */,
 				B10000052D00000100000001 /* NOTICE.txt in Resources */,
+				B10000072D00000100000001 /* Icon-60@2x.png in Resources */,
+				B10000092D00000100000001 /* Icon-60@3x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -374,13 +384,14 @@
 		8A1C83822AC328BE0096AF73 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = K4Y8CP6MR5;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Tentetsu/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "音声で乗換条件を入力するためにマイクを使用します。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "話した乗換条件を文字に変換するために音声認識を使用します。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -408,13 +419,14 @@
 		8A1C83832AC328BE0096AF73 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = K4Y8CP6MR5;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Tentetsu/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "音声で乗換条件を入力するためにマイクを使用します。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "話した乗換条件を文字に変換するために音声認識を使用します。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
