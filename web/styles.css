@@ -63,10 +63,10 @@ label { display: block; margin-bottom: 13px; font-size: 13px; font-weight: 800; 
 textarea { width: 100%; min-height: 112px; resize: vertical; border: 0; border-bottom: 2px solid var(--ink); outline: 0; padding: 6px 0 17px; color: var(--ink); background: transparent; font: 600 clamp(20px, 3vw, 31px)/1.55 inherit; letter-spacing: -.025em; }
 textarea::placeholder { color: rgba(16,34,25,.27); }
 textarea:focus { border-color: var(--moss); }
-.input-tools { display: flex; justify-content: flex-end; height: 0; overflow: visible; }
-#dismissKeyboard { position: relative; z-index: 1; display: none; margin-top: 7px; padding: 6px 10px; border: 0; border-radius: 999px; color: var(--moss); background: rgba(185,226,200,.42); font-size: 11px; font-weight: 800; cursor: pointer; }
+.input-tools { display: flex; justify-content: flex-end; margin-top: 8px; }
+#dismissKeyboard { display: none; padding: 6px 10px; border: 0; border-radius: 999px; color: var(--moss); background: rgba(185,226,200,.42); font-size: 11px; font-weight: 800; cursor: pointer; }
 textarea:focus + .input-tools #dismissKeyboard { display: inline-block; }
-.form-footer { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 27px; }
+.form-footer { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 16px; }
 .hint { max-width: 560px; color: rgba(16,34,25,.55); font-size: 12px; line-height: 1.6; }
 #submitButton { display: inline-flex; align-items: center; gap: 28px; flex: none; padding: 15px 17px 15px 23px; border: 0; border-radius: 999px; color: white; background: var(--forest); font-weight: 800; cursor: pointer; transition: transform .2s, background .2s; }
 #submitButton:hover { transform: translateY(-2px); background: var(--moss); }
